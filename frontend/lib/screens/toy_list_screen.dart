@@ -298,7 +298,7 @@ class _ToyListScreenState extends State<ToyListScreen> {
               children: [
                 Container(
                   padding: EdgeInsets.all(16),
-                  color: Colors.white,
+                  color: Theme.of(context).colorScheme.surface,
                   child: Column(
                     children: [
                       Container(
@@ -320,7 +320,18 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                   hintStyle: TextStyle(color: Colors.grey[600]),
                                   prefixIcon: Icon(Icons.search,
                                       color: Colors.grey[600]),
-                                  border: InputBorder.none,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                                  ),
+                                  filled: true,
+                                  fillColor: Theme.of(context)
+                                      .inputDecorationTheme
+                                      .fillColor,
                                   contentPadding:
                                       EdgeInsets.symmetric(horizontal: 16),
                                 ),
