@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../models/user.dart';
+import 'package:provider/provider.dart';
+import '../providers/theme_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   @override
@@ -119,7 +121,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color.fromARGB(255, 42, 149, 156),
+        backgroundColor: Theme.of(context).colorScheme.primary,
         title: Row(
           children: [
             Image.asset(
@@ -136,170 +138,178 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.settings),
+            icon: Icon(Icons.brightness_6,
+                color: Theme.of(context).colorScheme.onPrimary),
             onPressed: () {
-              // Navigation vers les paramètres
+              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
             },
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // En-tête du profil
-            Container(
-              padding: EdgeInsets.all(16),
-              color: Colors.white,
-              child: Column(
-                children: [
-                  // Photo de profil
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      CircleAvatar(
-                        radius: 50,
-                        backgroundColor: Colors.grey[200],
-                        backgroundImage: _imageFile != null
-                            ? FileImage(_imageFile!)
-                            : (mockUser.profileImageUrl != null
-                                ? NetworkImage(mockUser.profileImageUrl!)
-                                    as ImageProvider
-                                : null),
-                        child: (_imageFile == null &&
-                                mockUser.profileImageUrl == null)
-                            ? Icon(Icons.person, size: 50, color: Colors.grey)
-                            : null,
-                      ),
-                      GestureDetector(
-                        onTap: _showImageSourceDialog,
-                        child: CircleAvatar(
-                          radius: 18,
-                          backgroundColor: Color.fromARGB(255, 42, 149, 156),
-                          child: Icon(
-                            Icons.camera_alt,
-                            size: 18,
-                            color: Colors.white,
+      body: Container(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              // En-tête du profil
+              Container(
+                padding: EdgeInsets.all(16),
+                color: Theme.of(context).colorScheme.surface,
+                child: Column(
+                  children: [
+                    // Photo de profil
+                    Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        CircleAvatar(
+                          radius: 50,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: _imageFile != null
+                              ? FileImage(_imageFile!)
+                              : (mockUser.profileImageUrl != null
+                                  ? NetworkImage(mockUser.profileImageUrl!)
+                                      as ImageProvider
+                                  : null),
+                          child: (_imageFile == null &&
+                                  mockUser.profileImageUrl == null)
+                              ? Icon(Icons.person, size: 50, color: Colors.grey)
+                              : null,
+                        ),
+                        GestureDetector(
+                          onTap: _showImageSourceDialog,
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: Color.fromARGB(255, 42, 149, 156),
+                            child: Icon(
+                              Icons.camera_alt,
+                              size: 18,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16),
-                  // Pseudo
-                  Text(
-                    mockUser.username,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                      ],
                     ),
-                  ),
-                  SizedBox(height: 8),
-                  // Note
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ...List.generate(5, (index) {
-                        return Icon(
-                          index < mockUser.rating
-                              ? Icons.star
-                              : Icons.star_border,
-                          color: Colors.amber,
-                          size: 24,
-                        );
-                      }),
-                      SizedBox(width: 8),
-                      Text(
-                        mockUser.rating.toString(),
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                    SizedBox(height: 16),
+                    // Pseudo
+                    Text(
+                      mockUser.username,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    // Note
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ...List.generate(5, (index) {
+                          return Icon(
+                            index < mockUser.rating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                            size: 24,
+                          );
+                        }),
+                        SizedBox(width: 8),
+                        Text(
+                          mockUser.rating.toString(),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 16),
+              // Statistiques
+              Container(
+                padding: EdgeInsets.all(16),
+                color: Theme.of(context).colorScheme.surface,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Statistiques',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
                       ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-            // Statistiques
-            Container(
-              padding: EdgeInsets.all(16),
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Statistiques',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
                     ),
-                  ),
-                  SizedBox(height: 16),
-                  _buildStatItem(
-                    icon: Icons.timer,
-                    title: 'Temps de réponse moyen',
-                    value: '${mockUser.responseTimeMinutes} minutes',
-                  ),
-                  _buildStatItem(
-                    icon: Icons.list_alt,
-                    title: 'Annonces publiées',
-                    value: mockUser.totalListings.toString(),
-                  ),
-                  _buildStatItem(
-                    icon: Icons.swap_horiz,
-                    title: 'Échanges réalisés',
-                    value: mockUser.completedTransactions.toString(),
-                  ),
-                  _buildStatItem(
-                    icon: Icons.calendar_today,
-                    title: 'Membre depuis',
-                    value: mockUser.memberSince,
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-            // Menu d'actions
-            Container(
-              padding: EdgeInsets.all(16),
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Actions',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                    SizedBox(height: 16),
+                    _buildStatItem(
+                      icon: Icons.timer,
+                      title: 'Temps de réponse moyen',
+                      value: '${mockUser.responseTimeMinutes} minutes',
                     ),
-                  ),
-                  SizedBox(height: 16),
-                  _buildActionButton(
-                    icon: Icons.edit,
-                    title: 'Modifier le profil',
-                    onTap: () {
-                      // Navigation vers modification profil
-                    },
-                  ),
-                  _buildActionButton(
-                    icon: Icons.history,
-                    title: 'Historique des échanges',
-                    onTap: () {
-                      // Navigation vers historique
-                    },
-                  ),
-                  _buildActionButton(
-                    icon: Icons.help_outline,
-                    title: 'Aide et support',
-                    onTap: () {
-                      // Navigation vers aide
-                    },
-                  ),
-                ],
+                    _buildStatItem(
+                      icon: Icons.list_alt,
+                      title: 'Annonces publiées',
+                      value: mockUser.totalListings.toString(),
+                    ),
+                    _buildStatItem(
+                      icon: Icons.swap_horiz,
+                      title: 'Échanges réalisés',
+                      value: mockUser.completedTransactions.toString(),
+                    ),
+                    _buildStatItem(
+                      icon: Icons.calendar_today,
+                      title: 'Membre depuis',
+                      value: mockUser.memberSince,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              SizedBox(height: 16),
+              // Menu d'actions
+              Container(
+                padding: EdgeInsets.all(16),
+                color: Theme.of(context).colorScheme.surface,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Actions',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                    SizedBox(height: 16),
+                    _buildActionButton(
+                      icon: Icons.edit,
+                      title: 'Modifier le profil',
+                      onTap: () {
+                        // Navigation vers modification profil
+                      },
+                    ),
+                    _buildActionButton(
+                      icon: Icons.history,
+                      title: 'Historique des échanges',
+                      onTap: () {
+                        // Navigation vers historique
+                      },
+                    ),
+                    _buildActionButton(
+                      icon: Icons.help_outline,
+                      title: 'Aide et support',
+                      onTap: () {
+                        // Navigation vers aide
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
