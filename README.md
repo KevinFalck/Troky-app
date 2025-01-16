@@ -1,7 +1,8 @@
-# TrocJouets 🎲🌍
+# Troky 🎲🌍
 
-**TrocJouets** est une application mobile destinée aux parents qui souhaitent échanger des jouets pour enfants. Elle vise à économiser de l'argent tout en adoptant une démarche écologique en donnant une seconde vie aux jouets inutilisés.
+**Troky** est une application mobile compatible IOS et Android destinée aux parents qui souhaitent échanger des jouets pour enfants. Elle vise à économiser de l'argent tout en adoptant une démarche écologique en donnant une seconde vie aux jouets inutilisés.
 
+SITE WEB: Https://Troky.fr
 ---
 
 ## 🌟 Fonctionnalités principales
