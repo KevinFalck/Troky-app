@@ -48,8 +48,8 @@ SITE WEB: Https://Troky.fr
 
 1. **Cloner le dépôt** :
    ```bash
-   git clone https://github.com/votre-utilisateur/trocjouets.git
-   cd trocjouets
+   git clone https://github.com/KevinFalck/troky-app.git
+   cd troky-app
    ```
 
 2. **Backend** :
