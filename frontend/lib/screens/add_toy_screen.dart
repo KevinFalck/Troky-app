@@ -9,6 +9,7 @@ import '../screens/toy_list_screen.dart';
 import '../main.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/auth_provider.dart';
 
 class AddToyScreen extends StatefulWidget {
   @override
@@ -306,111 +307,134 @@ class _AddToyScreenState extends State<AddToyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        title: Text(
-          'Ajouter un jouet',
-          style: TextStyle(color: Colors.white),
+    final auth = Provider.of<AuthProvider>(context);
+    if (!auth.isAuthenticated) {
+      Future.microtask(
+          () => Navigator.of(context).pushReplacementNamed('/login'));
+      return Container();
+    }
+
+    return WillPopScope(
+      onWillPop: () async {
+        // Redirige vers MainScreen au lieu de revenir à la page précédente
+        Navigator.of(context).pushReplacementNamed('/');
+        return false; // Ne pas bloquer la navigation
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.primary,
+          title: Text(
+            'Ajouter un jouet',
+            style: TextStyle(color: Colors.white),
+          ),
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back,
+                color: Theme.of(context).colorScheme.onPrimary),
+            onPressed: () {
+              // Vérifiez s'il y a un écran précédent
+              if (Navigator.canPop(context)) {
+                Navigator.pop(context);
+              } else {
+                // Si aucun écran précédent, redirigez vers MainScreen
+                Navigator.of(context).pushReplacementNamed('/');
+              }
+            },
+          ),
         ),
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back,
-              color: Theme.of(context).colorScheme.onPrimary),
-          onPressed: () {
-            Navigator.of(context).pop(true);
-          },
-        ),
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                GestureDetector(
-                  onTap: _pickImage,
-                  child: Container(
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.onSurface,
+        body: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 200,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
-                    ),
-                    child: _imageFile != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(_imageFile!.path),
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Center(
-                            child: Text(
-                              'Ajouter une photo',
-                              style: TextStyle(
-                                color: Theme.of(context).colorScheme.onSurface,
+                      child: _imageFile != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.file(
+                                File(_imageFile!.path),
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Center(
+                              child: Text(
+                                'Ajouter une photo',
+                                style: TextStyle(
+                                  color:
+                                      Theme.of(context).colorScheme.onSurface,
+                                ),
                               ),
                             ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Nom du jouet',
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor:
+                          Theme.of(context).inputDecorationTheme.fillColor,
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer un nom';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                      filled: true,
+                      fillColor:
+                          Theme.of(context).inputDecorationTheme.fillColor,
+                    ),
+                    maxLines: 4,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Veuillez entrer une description';
+                      }
+                      return null;
+                    },
+                  ),
+                  SizedBox(height: 16),
+                  _buildLocationField(),
+                  SizedBox(height: 24),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    onPressed: _isLoading ? null : _submitForm,
+                    child: _isLoading
+                        ? CircularProgressIndicator(color: Colors.white)
+                        : Text(
+                            'Publier',
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                            ),
                           ),
                   ),
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Nom du jouet',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Theme.of(context).inputDecorationTheme.fillColor,
-                  ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer un nom';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 16),
-                TextFormField(
-                  controller: _descriptionController,
-                  decoration: InputDecoration(
-                    labelText: 'Description',
-                    border: OutlineInputBorder(),
-                    filled: true,
-                    fillColor: Theme.of(context).inputDecorationTheme.fillColor,
-                  ),
-                  maxLines: 4,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Veuillez entrer une description';
-                    }
-                    return null;
-                  },
-                ),
-                SizedBox(height: 16),
-                _buildLocationField(),
-                SizedBox(height: 24),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    padding: EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  onPressed: _isLoading ? null : _submitForm,
-                  child: _isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text(
-                          'Publier',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.white,
-                          ),
-                        ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -6,12 +6,18 @@ import 'screens/favorites_screen.dart';
 import 'screens/add_toy_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/messages_screen.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
 import 'providers/theme_provider.dart';
+import 'providers/auth_provider.dart';
 
 void main() {
   runApp(
-    ChangeNotifierProvider(
-      create: (context) => ThemeProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (context) => ThemeProvider()),
+        ChangeNotifierProvider(create: (context) => AuthProvider()),
+      ],
       child: MyApp(),
     ),
   );
@@ -57,6 +63,11 @@ class MyApp extends StatelessWidget {
       ),
       themeMode: themeProvider.themeMode, // Utilisez le thème du provider
       home: MainScreen(),
+      routes: {
+        '/login': (context) => LoginScreen(),
+        '/add-toy': (context) => AddToyScreen(),
+        '/register': (context) => RegisterScreen(),
+      },
     );
   }
 }
@@ -78,13 +89,29 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 2) {
+      setState(() {
+        _selectedIndex = index;
+      });
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+
+    // Vérifiez si l'utilisateur est authentifié
+    if (!auth.isAuthenticated && _selectedIndex == 2) {
+      // Si l'utilisateur essaie d'accéder à AddToyScreen
+      Future.microtask(
+          () => Navigator.of(context).pushReplacementNamed('/login'));
+      return Container(); // Retourne un conteneur vide pendant la redirection
+    }
+
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(

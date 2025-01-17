@@ -57,6 +57,10 @@ app.post("/api/upload", upload.single("image"), async (req, res) => {
 const toysRouter = require("./routes/toys");
 app.use("/api/toys", toysRouter);
 
+// Routes d'authentification
+const authRouter = require("./routes/auth");
+app.use("/auth", authRouter);
+
 // Connexion MongoDB
 mongoose
   .connect(process.env.MONGODB_URI)

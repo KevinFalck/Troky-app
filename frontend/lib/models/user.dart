@@ -1,5 +1,6 @@
 class User {
   final String id;
+  final String email;
   final String username;
   final String? profileImageUrl;
   final double rating;
@@ -10,6 +11,7 @@ class User {
 
   User({
     required this.id,
+    required this.email,
     required this.username,
     this.profileImageUrl,
     required this.rating,
@@ -22,6 +24,7 @@ class User {
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
       id: json['_id'] ?? '',
+      email: json['email'] ?? '',
       username: json['username'] ?? '',
       profileImageUrl: json['profileImageUrl'],
       rating: (json['rating'] ?? 0.0).toDouble(),
