@@ -116,10 +116,10 @@ Ce projet est sous licence MIT. Voir le fichier [LICENSE](./LICENSE) pour plus d
 
 ## 📧 Contact
 
-Pour toute question ou suggestion, contactez-moi à : **votre-email@example.com**
+Pour toute question ou suggestion, contactez-moi à contact@kevinfalck.tech
 
 ---
 
 ## 🌍 Contributions
 
-Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une [issue](https://github.com/votre-utilisateur/trocjouets/issues) ou soumettre une [pull request](https://github.com/votre-utilisateur/trocjouets/pulls).
+Les contributions sont les bienvenues ! N'hésitez pas à ouvrir une [issue](https://github.com/kevinfalck/troky-app/issues) ou soumettre une [pull request](https://github.com/kevinfalck/troky-app/pulls).
