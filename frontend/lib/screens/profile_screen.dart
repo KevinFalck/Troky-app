@@ -109,6 +109,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final User mockUser = User(
     id: '1',
     username: 'Kevin F.',
+    email: 'kevinthelol@gmail.com',
     profileImageUrl: null,
     rating: 4.9,
     responseTimeMinutes: 20,

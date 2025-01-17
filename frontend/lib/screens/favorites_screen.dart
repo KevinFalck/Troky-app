@@ -3,6 +3,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/toy.dart';
 import 'toy_detail_screen.dart';
+import 'add_toy_screen.dart';
+import 'messages_screen.dart';
+import 'profile_screen.dart';
+import 'login_screen.dart';
+import 'favorites_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
   @override
@@ -60,7 +65,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
       if (response.statusCode == 200) {
         setState(() {
-          toy.favorites = !toy.favorites; // Met à jour l'état du jouet
+          toy.favorites = !toy.favorites;
         });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Favori mis à jour avec succès')),

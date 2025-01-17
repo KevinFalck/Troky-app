@@ -25,6 +25,7 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
     mockOwner = User(
       id: '1',
       username: 'Kevin F.',
+      email: 'kevinthelol@gmail.com',
       profileImageUrl: null,
       rating: 4.9,
       responseTimeMinutes: 20,
