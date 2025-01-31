@@ -11,10 +11,44 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true, // Le mot de passe est requis
+    required: function () {
+      return !this.googleId;
+    }, // Conditionnel
     minlength: 6, // Longueur minimale du mot de passe
   },
+  googleId: {
+    type: String,
+    unique: true,
+    sparse: true,
+  },
+  name: String,
+  profileImage: String,
+  favoriteToys: [{ type: mongoose.Schema.Types.ObjectId, ref: "Toy" }],
 });
+
+// Ajouter une méthode pour gérer les favoris
+userSchema.methods.toggleFavorite = async function (toyId) {
+  if (!toyId) throw new Error("ID de jouet requis");
+
+  // Vérification de l'existence de l'instance
+  if (!this) throw new Error("Utilisateur non initialisé");
+
+  let toyObjectId;
+  try {
+    toyObjectId = new mongoose.Types.ObjectId(toyId);
+  } catch (error) {
+    throw new Error("ID de jouet invalide: format incorrect");
+  }
+
+  const index = this.favoriteToys.findIndex((t) => t.equals(toyObjectId));
+  if (index > -1) {
+    this.favoriteToys.splice(index, 1); // Plus performant que pull
+  } else {
+    this.favoriteToys.push(toyObjectId);
+  }
+
+  return this.save();
+};
 
 // Création du modèle utilisateur
 const User = mongoose.model("User", userSchema);

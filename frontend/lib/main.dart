@@ -10,8 +10,13 @@ import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'providers/theme_provider.dart';
 import 'providers/auth_provider.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'config/app_routes.dart';
+import 'config/theme_config.dart';
+import 'services/navigation_service.dart';
 
-void main() {
+void main() async {
+  await dotenv.load(fileName: ".env");
   runApp(
     MultiProvider(
       providers: [
@@ -24,55 +29,31 @@ void main() {
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     return MaterialApp(
       title: 'Troky - Troc de Jouets',
-      theme: ThemeData(
-        primaryColor: Color.fromARGB(255, 42, 149, 156),
-        primarySwatch: Colors.blue,
-        brightness: Brightness.light,
-        scaffoldBackgroundColor: Colors.white,
-        // Thème clair
-        colorScheme: ColorScheme.light(
-          primary: Color.fromARGB(255, 42, 149, 156),
-          secondary: Colors.blue,
-        ),
-      ),
-      darkTheme: ThemeData(
-        primaryColor: Color.fromARGB(255, 42, 149, 156),
-        primarySwatch: Colors.blue,
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: Color(0xFF121212), // Couleur de fond sombre
-        // Thème sombre
-        colorScheme: ColorScheme.dark(
-          primary: Color.fromARGB(255, 42, 149, 156),
-          secondary: Colors.blue,
-          surface: Color(0xFF1E1E1E),
-          background: Color(0xFF121212),
-        ),
-        // Personnalisation des composants en mode sombre
-        appBarTheme: AppBarTheme(
-          backgroundColor: Color(0xFF1E1E1E),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          fillColor: Color(0xFF2A2A2A),
-          filled: true,
-        ),
-      ),
-      themeMode: themeProvider.themeMode, // Utilisez le thème du provider
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider.themeMode,
+      navigatorKey: NavigationService().navigatorKey,
       home: MainScreen(),
       routes: {
-        '/login': (context) => LoginScreen(),
-        '/add-toy': (context) => AddToyScreen(),
-        '/register': (context) => RegisterScreen(),
+        AppRoutes.login: (context) => LoginScreen(),
+        AppRoutes.addToy: (context) => AddToyScreen(),
+        AppRoutes.register: (context) => RegisterScreen(),
+        AppRoutes.home: (context) => MainScreen(),
       },
     );
   }
 }
 
 class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
   @override
   _MainScreenState createState() => _MainScreenState();
 }
@@ -89,29 +70,13 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   void _onItemTapped(int index) {
-    if (index == 2) {
-      setState(() {
-        _selectedIndex = index;
-      });
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final auth = Provider.of<AuthProvider>(context);
-
-    // Vérifiez si l'utilisateur est authentifié
-    if (!auth.isAuthenticated && _selectedIndex == 2) {
-      // Si l'utilisateur essaie d'accéder à AddToyScreen
-      Future.microtask(
-          () => Navigator.of(context).pushReplacementNamed('/login'));
-      return Container(); // Retourne un conteneur vide pendant la redirection
-    }
-
     return Scaffold(
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(

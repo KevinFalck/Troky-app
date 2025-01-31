@@ -1,5 +1,6 @@
 // models/Toy.js
 const mongoose = require("mongoose");
+const User = require("./User");
 
 const toySchema = new mongoose.Schema(
   {
@@ -30,10 +31,6 @@ const toySchema = new mongoose.Schema(
         required: true,
       },
     },
-    favorites: {
-      type: Boolean,
-      default: false,
-    },
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -49,5 +46,13 @@ const toySchema = new mongoose.Schema(
 toySchema.index({ coordinates: "2dsphere" });
 
 const Toy = mongoose.model("Toy", toySchema);
+
+// Nettoyage des favoris après suppression
+toySchema.post(["deleteOne", "findOneAndDelete"], async function (doc) {
+  await User.updateMany(
+    { favoriteToys: doc._id },
+    { $pull: { favoriteToys: doc._id } }
+  );
+});
 
 module.exports = Toy;

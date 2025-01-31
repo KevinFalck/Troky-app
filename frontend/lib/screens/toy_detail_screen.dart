@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/toy.dart';
 import '../models/user.dart';
-import 'dart:convert' as json;
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class ToyDetailScreen extends StatefulWidget {
   final Toy toy;
 
-  ToyDetailScreen({required this.toy});
+  const ToyDetailScreen({super.key, required this.toy});
 
   @override
   _ToyDetailScreenState createState() => _ToyDetailScreenState();
@@ -21,7 +22,8 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
   @override
   void initState() {
     super.initState();
-    isFavorite = widget.toy.favorites;
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    isFavorite = auth.user?.favoriteToys?.contains(widget.toy.id) ?? false;
     mockOwner = User(
       id: '1',
       username: 'Kevin F.',
@@ -36,36 +38,22 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
   }
 
   Future<void> toggleFavorite() async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+
+    if (!auth.isAuthenticated) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Connectez-vous pour gérer les favoris')),
+      );
+      return;
+    }
+
     try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mise à jour des favoris en cours...')),
-      );
-
-      final response = await http.patch(
-        Uri.parse('http://10.0.2.2:5000/api/toys/${widget.toy.id}/favorites'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'favorites': !isFavorite}),
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          isFavorite = !isFavorite;
-          widget.toy.favorites = isFavorite;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Favori mis à jour avec succès')),
-        );
-      } else {
-        print(
-            'Erreur lors de la mise à jour des favoris: ${response.statusCode}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la mise à jour des favoris')),
-        );
-      }
+      setState(() => isFavorite = !isFavorite); // Feedback immédiat
+      await auth.toggleFavorite(widget.toy.id!); // Utilisation du provider
     } catch (e) {
-      print('Erreur de connexion: $e');
+      setState(() => isFavorite = !isFavorite); // Annulation visuelle
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de connexion')),
+        SnackBar(content: Text('Erreur: ${e.toString()}')),
       );
     }
   }
@@ -81,7 +69,7 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
             Navigator.pop(context, true);
           },
         ),
-        title: Text(widget.toy.name, style: TextStyle(color: Colors.white)),
+        title: Text(widget.toy.name ?? 'Détails du jouet'),
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -89,17 +77,12 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
           children: [
             Stack(
               children: [
-                Container(
+                SizedBox(
                   height: 300,
                   width: double.infinity,
-                  child: widget.toy.imageUrl.isNotEmpty
-                      ? Image.network(
-                          widget.toy.imageUrl,
-                          fit: BoxFit.cover,
-                        )
-                      : Center(
-                          child: Icon(Icons.image_not_supported, size: 50),
-                        ),
+                  child: (widget.toy.imageUrl?.isNotEmpty ?? false)
+                      ? Image.network(widget.toy.imageUrl!)
+                      : Placeholder(),
                 ),
                 Positioned(
                   bottom: 8,
@@ -127,16 +110,13 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    widget.toy.name,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    widget.toy.name ?? 'Nom inconnu',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
                   SizedBox(height: 8),
                   Text(
-                    widget.toy.description,
-                    style: TextStyle(fontSize: 16),
+                    widget.toy.description ?? 'Aucune description',
+                    style: Theme.of(context).textTheme.bodyMedium,
                   ),
                 ],
               ),
@@ -161,7 +141,7 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            mockOwner.username,
+                            mockOwner.username ?? 'Utilisateur inconnu',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -173,7 +153,7 @@ class _ToyDetailScreenState extends State<ToyDetailScreen> {
                               Icon(Icons.star, color: Colors.amber, size: 20),
                               SizedBox(width: 4),
                               Text(
-                                mockOwner.rating.toStringAsFixed(1),
+                                mockOwner.rating?.toStringAsFixed(1) ?? '0.0',
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey[600],

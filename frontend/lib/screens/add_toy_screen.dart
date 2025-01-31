@@ -12,6 +12,8 @@ import '../providers/theme_provider.dart';
 import '../providers/auth_provider.dart';
 
 class AddToyScreen extends StatefulWidget {
+  const AddToyScreen({super.key});
+
   @override
   _AddToyScreenState createState() => _AddToyScreenState();
 }
@@ -25,7 +27,7 @@ class _AddToyScreenState extends State<AddToyScreen> {
   XFile? _imageFile;
   bool _isLoading = false;
   Position? _currentPosition;
-  bool _isLocationLoading = false;
+  final bool _isLocationLoading = false;
   List<String> _suggestions = [];
   bool _isSearching = false;
 
@@ -40,9 +42,11 @@ class _AddToyScreenState extends State<AddToyScreen> {
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
-      setState(() {
-        _currentPosition = position;
-      });
+      if (mounted) {
+        setState(() {
+          _currentPosition = position;
+        });
+      }
     } catch (e) {
       print('Erreur de géolocalisation: $e');
     }
@@ -52,7 +56,7 @@ class _AddToyScreenState extends State<AddToyScreen> {
     try {
       String cleanedCityName = cityName.trim();
       List<Location> locations =
-          await locationFromAddress(cleanedCityName + ", France");
+          await locationFromAddress("$cleanedCityName, France");
 
       if (locations.isEmpty) {
         locations = await locationFromAddress(cleanedCityName);
@@ -143,9 +147,11 @@ class _AddToyScreenState extends State<AddToyScreen> {
       );
 
       if (pickedFile != null) {
-        setState(() {
-          _imageFile = pickedFile;
-        });
+        if (mounted) {
+          setState(() {
+            _imageFile = pickedFile;
+          });
+        }
       }
     } catch (e) {
       print('Erreur lors de la sélection de l\'image: $e');
@@ -224,7 +230,7 @@ class _AddToyScreenState extends State<AddToyScreen> {
     try {
       final response = await http.get(
         Uri.parse(
-            'https://geo.api.gouv.fr/communes?nom=${query}&limit=5&boost=population'),
+            'https://geo.api.gouv.fr/communes?nom=$query&limit=5&boost=population'),
       );
 
       if (response.statusCode == 200) {

@@ -13,6 +13,7 @@ app.use(cors());
 app.use(express.json());
 
 // Configuration S3
+// @ts-ignore
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -26,6 +27,7 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // Route d'upload
+// @ts-ignore
 app.post("/api/upload", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
@@ -61,9 +63,20 @@ app.use("/api/toys", toysRouter);
 const authRouter = require("./routes/auth");
 app.use("/auth", authRouter);
 
+// Routes des utilisateurs
+const usersRouter = require("./routes/users");
+app.use("/api/users", usersRouter);
+
+// @ts-ignore
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
 // Connexion MongoDB
+// @ts-ignore
 mongoose
-  .connect(process.env.MONGODB_URI)
+  .connect(process.env.MONGODB_URI || "")
   .then(() => console.log("Connecté à MongoDB"))
   .catch((err) => console.error("Erreur de connexion à MongoDB:", err));
 

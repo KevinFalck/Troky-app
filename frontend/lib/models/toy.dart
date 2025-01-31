@@ -3,21 +3,17 @@ import 'user.dart';
 
 class Toy {
   final String id;
-  final String name;
-  final String description;
-  final String imageUrl;
-  final String location;
-  bool _favorites;
+  final String? name;
+  final String? description;
+  final String? imageUrl;
+  final String? location;
+  final double? price;
+  final bool? isAvailable;
   final User? owner;
-
-  bool get favorites => _favorites;
-  set favorites(bool value) {
-    _favorites = value;
-  }
+  bool isFavorite = false;
 
   double get latitude {
-    if (coordinates == null ||
-        coordinates['coordinates'] == null ||
+    if (coordinates['coordinates'] == null ||
         coordinates['coordinates'].length < 2) {
       return 0.0;
     }
@@ -25,8 +21,7 @@ class Toy {
   }
 
   double get longitude {
-    if (coordinates == null ||
-        coordinates['coordinates'] == null ||
+    if (coordinates['coordinates'] == null ||
         coordinates['coordinates'].isEmpty) {
       return 0.0;
     }
@@ -37,23 +32,39 @@ class Toy {
 
   Toy({
     required this.id,
-    required this.name,
-    required this.description,
-    required this.imageUrl,
-    required this.location,
-    required bool favorites,
+    this.name,
+    this.description,
+    this.imageUrl,
+    this.location,
+    this.price,
+    this.isAvailable,
     this.owner,
     required this.coordinates,
-  }) : _favorites = favorites;
+  });
+
+  Toy copyWith() {
+    return Toy(
+      id: id,
+      name: name,
+      description: description,
+      imageUrl: imageUrl,
+      location: location,
+      price: price,
+      isAvailable: isAvailable,
+      owner: owner,
+      coordinates: coordinates,
+    );
+  }
 
   factory Toy.fromJson(Map<String, dynamic> json) {
     return Toy(
-      id: json['_id'] ?? '',
-      name: json['name'] ?? '',
+      id: json['_id']?.toString() ?? '',
+      name: json['name'] ?? 'Jouet sans nom',
       description: json['description'] ?? '',
-      imageUrl: json['imageUrl'] ?? '',
-      location: json['location'] ?? '',
-      favorites: json['favorites'] ?? false,
+      imageUrl: json['imageUrl'],
+      location: json['location'] ?? 'Localisation inconnue',
+      price: json['price']?.toDouble(),
+      isAvailable: json['isAvailable'],
       owner: json['owner'] != null ? User.fromJson(json['owner']) : null,
       coordinates: json['coordinates'] ??
           {
@@ -70,7 +81,6 @@ class Toy {
       'description': description,
       'imageUrl': imageUrl,
       'location': location,
-      'favorites': favorites,
     };
   }
 }

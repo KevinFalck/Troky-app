@@ -1,6 +1,7 @@
 // routes/toys.js
 const express = require("express");
 const Toy = require("../models/Toy");
+const mongoose = require("mongoose");
 const router = express.Router();
 
 // Route pour créer un nouveau jouet
@@ -32,7 +33,6 @@ router.post("/", async (req, res) => {
       type: "Point",
       coordinates: [parseFloat(longitude), parseFloat(latitude)],
     },
-    favorites: false,
   });
 
   try {
@@ -80,28 +80,6 @@ router.get("/nearby", async (req, res) => {
   }
 });
 
-// Route pour mettre à jour les favoris
-router.patch("/:id/favorites", async (req, res) => {
-  const { id } = req.params;
-  const { favorites } = req.body;
-
-  try {
-    const updatedToy = await Toy.findByIdAndUpdate(
-      id,
-      { favorites },
-      { new: true }
-    );
-    if (!updatedToy) {
-      return res.status(404).json({ message: "Jouet non trouvé" });
-    }
-    res.json(updatedToy);
-  } catch (error) {
-    res
-      .status(400)
-      .json({ message: "Erreur lors de la mise à jour des favoris" });
-  }
-});
-
 // Route pour supprimer un jouet
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
@@ -114,6 +92,17 @@ router.delete("/:id", async (req, res) => {
     res.json({ message: "Jouet supprimé avec succès" });
   } catch (error) {
     res.status(500).json({ message: "Erreur lors de la suppression du jouet" });
+  }
+});
+
+router.post("/by-ids", async (req, res) => {
+  try {
+    const { ids } = req.body;
+    const objectIds = ids.map((id) => new mongoose.Types.ObjectId(id));
+    const toys = await Toy.find({ _id: { $in: objectIds } });
+    res.json(toys);
+  } catch (error) {
+    res.status(500).json({ message: "Erreur récupération jouets" });
   }
 });
 
