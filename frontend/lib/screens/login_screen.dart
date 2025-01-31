@@ -9,8 +9,11 @@ import 'favorites_screen.dart';
 import 'add_toy_screen.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
   @override
   _LoginScreenState createState() => _LoginScreenState();
 }
@@ -113,6 +116,24 @@ class _LoginScreenState extends State<LoginScreen> {
                     '/register'); // Redirige vers la page d'inscription
               },
               child: Text('Pas encore inscrit ? Créez un compte'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                try {
+                  await Provider.of<AuthProvider>(context, listen: false)
+                      .handleGoogleSignIn(context);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Erreur Google: ${e.toString()}')),
+                  );
+                }
+              },
+              icon: Image.asset('assets/images/google_logo.webp', width: 24),
+              label: Text('Continuer avec Google'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
             ),
           ],
         ),

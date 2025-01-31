@@ -9,8 +9,11 @@ import 'favorites_screen.dart';
 import 'add_toy_screen.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
+import '../config/app_routes.dart';
 
 class RegisterScreen extends StatefulWidget {
+  const RegisterScreen({super.key});
+
   @override
   _RegisterScreenState createState() => _RegisterScreenState();
 }
@@ -21,33 +24,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
   int _selectedIndex = 0; // Pour gérer l'index de la barre de navigation
 
   Future<void> _register() async {
-    final response = await http.post(
-      Uri.parse(
-          'http://10.0.2.2:5000/auth/register'), // Remplacez par l'URL de votre backend
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'email': _emailController.text,
-        'password': _passwordController.text,
-      }),
-    );
-
-    if (response.statusCode == 201) {
-      final data = json.decode(response.body);
-      // Gérer l'inscription réussie
-      print('Inscription réussie: ${data['message']}');
-      // Afficher une notification de succès
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Inscription réussie!')),
+    try {
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:5000/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': _emailController.text,
+          'password': _passwordController.text,
+        }),
       );
-      Navigator.of(context)
-          .pushReplacementNamed('/login'); // Redirige vers la page de connexion
-    } else {
-      // Gérer les erreurs
-      final data = json.decode(response.body);
-      print('Erreur: ${data['message']}');
-      // Afficher une notification d'erreur
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        Provider.of<AuthProvider>(context, listen: false).login(data['userId']);
+        Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+      } else {
+        final errorBody = json.decode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorBody['message'] ?? 'Erreur inconnue')),
+        );
+      }
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${data['message']}')),
+        SnackBar(content: Text('Erreur de connexion: $e')),
       );
     }
   }
@@ -81,6 +80,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _logout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Déconnexion'),
+          content: Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                Provider.of<AuthProvider>(context, listen: false).logout();
+                Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+              },
+              child: Text('Déconnexion', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Pas de redirection ici
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,13 +133,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
               onPressed: _register,
               child: Text('S\'inscrire'),
             ),
-            SizedBox(height: 20),
             TextButton(
               onPressed: () {
-                Navigator.of(context)
-                    .pushNamed('/login'); // Redirige vers la page de connexion
+                Navigator.of(context).pushReplacementNamed(AppRoutes.login);
               },
-              child: Text('Déjà inscrit ? Connectez-vous'),
+              child: Text('Déjà un compte ? Connectez-vous'),
+            ),
+            // Ajout du bouton Google
+            ElevatedButton.icon(
+              onPressed: () => Provider.of<AuthProvider>(context, listen: false)
+                  .handleGoogleSignIn(context),
+              icon: Image.asset('assets/images/google_logo.webp', width: 24),
+              label: Text('Continuer avec Google'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.black,
+              ),
             ),
           ],
         ),

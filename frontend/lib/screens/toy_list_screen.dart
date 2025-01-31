@@ -7,9 +7,13 @@ import 'dart:math';
 import '../models/toy.dart';
 import 'add_toy_screen.dart';
 import 'toy_detail_screen.dart';
-import './favorites_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../models/user.dart';
 
 class ToyListScreen extends StatefulWidget {
+  const ToyListScreen({super.key});
+
   @override
   _ToyListScreenState createState() => _ToyListScreenState();
 }
@@ -27,7 +31,6 @@ class _ToyListScreenState extends State<ToyListScreen> {
   @override
   void initState() {
     super.initState();
-    _getCurrentLocation();
     _loadToys();
   }
 
@@ -42,25 +45,34 @@ class _ToyListScreenState extends State<ToyListScreen> {
   }
 
   Future<bool> _handleLocationPermission() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    // Ajouter un timeout pour les services de localisation
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-              'Les services de localisation sont désactivés. Veuillez les activer.'),
-          action: SnackBarAction(
-            label: 'PARAMÈTRES',
-            onPressed: () => Geolocator.openLocationSettings(),
-          ),
+      if (!mounted) return false;
+      await showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text('Localisation requise'),
+          content: Text('Activez la localisation pour voir les jouets proches'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await Geolocator.openLocationSettings();
+                Navigator.pop(ctx);
+              },
+              child: Text('Paramètres'),
+            ),
+          ],
         ),
       );
       return false;
     }
 
-    permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
@@ -146,17 +158,16 @@ class _ToyListScreenState extends State<ToyListScreen> {
       String locationQuery = _locationController.text.toLowerCase();
 
       filteredToys = toys.where((toy) {
-        bool matchesSearch = searchQuery.isEmpty ||
-            toy.name.toLowerCase().contains(searchQuery) ||
-            toy.description.toLowerCase().contains(searchQuery);
+        bool matchesSearch =
+            _matchesSearchQuery(toy, searchQuery, locationQuery);
 
         bool matchesLocation = true;
 
         if (locationQuery.isNotEmpty) {
-          matchesLocation = toy.location.toLowerCase().contains(locationQuery);
+          matchesLocation =
+              (toy.location ?? '').toLowerCase().contains(locationQuery);
         } else if (_currentPosition != null) {
-          if (toy.coordinates != null &&
-              toy.coordinates['coordinates'] != null &&
+          if (toy.coordinates['coordinates'] != null &&
               toy.coordinates['coordinates'].length == 2) {
             double distance = Geolocator.distanceBetween(
               _currentPosition!.latitude,
@@ -180,11 +191,12 @@ class _ToyListScreenState extends State<ToyListScreen> {
       // Trier par distance si on a une position
       if (_currentPosition != null) {
         filteredToys.sort((a, b) {
-          // Ne trier que les jouets avec des coordonnées valides
-          if (a.coordinates == null || a.coordinates['coordinates'] == null)
+          if (a.coordinates['coordinates'] == null) {
             return 1;
-          if (b.coordinates == null || b.coordinates['coordinates'] == null)
+          }
+          if (b.coordinates['coordinates'] == null) {
             return -1;
+          }
 
           double distanceA = Geolocator.distanceBetween(
             _currentPosition!.latitude,
@@ -204,6 +216,17 @@ class _ToyListScreenState extends State<ToyListScreen> {
     });
   }
 
+  bool _matchesSearchQuery(Toy toy, String searchQuery, String locationQuery) {
+    final name = toy.name ?? '';
+    final description = toy.description ?? '';
+    final location = toy.location ?? '';
+
+    return name.toLowerCase().contains(searchQuery) ||
+        description.toLowerCase().contains(searchQuery) &&
+            (locationQuery.isEmpty ||
+                location.toLowerCase().contains(locationQuery));
+  }
+
   Future<void> _loadToys() async {
     setState(() {
       _isLoading = true;
@@ -218,54 +241,44 @@ class _ToyListScreenState extends State<ToyListScreen> {
           toys = toysJson.map((json) => Toy.fromJson(json)).toList();
           filteredToys = List.from(toys);
         });
+        Provider.of<AuthProvider>(context, listen: false).setToys(toys);
       }
     } catch (e) {
       print('Erreur lors du chargement des jouets: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  Future<void> toggleFavorite(String id, bool currentState) async {
-    try {
-      final response = await http.patch(
-        Uri.parse('http://10.0.2.2:5000/api/toys/$id/favorites'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'favorites': !currentState}),
-      );
-
-      if (response.statusCode == 200) {
-        // Rafraîchir la liste des jouets
-        await _loadToys();
-      } else {
-        print(
-            'Erreur lors de la mise à jour des favoris: ${response.statusCode}');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors de la mise à jour des favoris')),
-        );
-      }
-    } catch (e) {
-      print('Erreur de connexion: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de connexion')),
-      );
-    }
+  bool isFavorite(Toy toy) {
+    return Provider.of<AuthProvider>(context, listen: true)
+            .user
+            ?.favoriteToys
+            ?.contains(toy.id) ??
+        false;
   }
 
   void _onItemTapped(int index) {
     if (index == 2) {
-      // Navigation vers la page d'ajout
+      final auth = Provider.of<AuthProvider>(context, listen: false);
+      if (!auth.isAuthenticated) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connectez-vous pour ajouter un jouet')),
+        );
+        return;
+      }
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => AddToyScreen()),
-      ).then((_) => _loadToys()); // Rafraîchir la liste au retour
+      ).then((_) => _loadToys());
     } else {
       setState(() {
         _selectedIndex = index;
       });
-      // Ajouter ici la navigation vers les autres pages
     }
   }
 
@@ -278,6 +291,14 @@ class _ToyListScreenState extends State<ToyListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+
+    // Charger les jouets même si l'utilisateur n'est pas connecté
+    if (toys.isEmpty && !_isLoading) {
+      _loadToys();
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 42, 149, 156),
@@ -354,17 +375,15 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                     textAlignVertical: TextAlignVertical.center,
                                     decoration: InputDecoration(
                                       hintText: _isLoadingLocation
-                                          ? 'Localisation...'
+                                          ? 'Localisation en cours...'
                                           : 'Ville',
                                       hintStyle:
                                           TextStyle(color: Colors.grey[600]),
-                                      prefixIcon: Padding(
-                                        padding: EdgeInsets.only(left: 8),
-                                        child: Icon(
-                                            _currentPosition != null
-                                                ? Icons.my_location
-                                                : Icons.location_on,
-                                            color: Colors.grey[600]),
+                                      prefixIcon: IconButton(
+                                        icon: Icon(_currentPosition != null
+                                            ? Icons.my_location
+                                            : Icons.location_disabled),
+                                        onPressed: _getCurrentLocation,
                                       ),
                                       border: InputBorder.none,
                                       contentPadding:
@@ -409,13 +428,13 @@ class _ToyListScreenState extends State<ToyListScreen> {
                       ),
                       itemCount: filteredToys.length,
                       itemBuilder: (context, index) {
+                        final toy = filteredToys[index];
                         return GestureDetector(
                           onTap: () async {
                             final result = await Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) =>
-                                    ToyDetailScreen(toy: filteredToys[index]),
+                                builder: (context) => ToyDetailScreen(toy: toy),
                               ),
                             );
                             if (result == true) {
@@ -434,11 +453,9 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                       SizedBox(
                                         height: 180,
                                         width: double.infinity,
-                                        child: filteredToys[index]
-                                                .imageUrl
-                                                .isNotEmpty
+                                        child: toy.imageUrl != null
                                             ? Image.network(
-                                                filteredToys[index].imageUrl,
+                                                toy.imageUrl!,
                                                 fit: BoxFit.cover,
                                                 errorBuilder: (context, error,
                                                     stackTrace) {
@@ -475,17 +492,37 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                           child: IconButton(
                                             padding: EdgeInsets.zero,
                                             icon: Icon(
-                                              filteredToys[index].favorites
+                                              isFavorite(toy)
                                                   ? Icons.favorite
                                                   : Icons.favorite_border,
                                               color: Colors.red,
-                                              size: 20,
                                             ),
-                                            onPressed: () {
-                                              toggleFavorite(
-                                                  filteredToys[index].id,
-                                                  filteredToys[index]
-                                                      .favorites);
+                                            onPressed: () async {
+                                              final auth =
+                                                  Provider.of<AuthProvider>(
+                                                      context,
+                                                      listen: false);
+                                              if (!auth.isAuthenticated) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                      content: Text(
+                                                          'Connectez-vous pour gérer les favoris')),
+                                                );
+                                                return;
+                                              }
+
+                                              try {
+                                                await auth
+                                                    .toggleFavorite(toy.id);
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context)
+                                                    .showSnackBar(
+                                                  SnackBar(
+                                                      content: Text(
+                                                          'Erreur: ${e.toString()}')),
+                                                );
+                                              }
                                             },
                                           ),
                                         ),
@@ -500,7 +537,7 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            filteredToys[index].name,
+                                            toy.name ?? 'Nom inconnu',
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.bold,
@@ -518,7 +555,8 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                               ),
                                               SizedBox(width: 4),
                                               Text(
-                                                filteredToys[index].location,
+                                                toy.location ??
+                                                    'Location non disponible',
                                                 style: TextStyle(
                                                   fontSize: 12,
                                                   color: Colors.grey[600],
@@ -529,7 +567,8 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                           SizedBox(height: 4),
                                           Expanded(
                                             child: Text(
-                                              filteredToys[index].description,
+                                              toy.description ??
+                                                  'Description non disponible',
                                               style: TextStyle(
                                                 fontSize: 14,
                                                 color: Colors.grey[600],

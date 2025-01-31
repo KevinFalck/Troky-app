@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:frontend/models/user.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/toy.dart';
@@ -8,8 +9,12 @@ import 'messages_screen.dart';
 import 'profile_screen.dart';
 import 'login_screen.dart';
 import 'favorites_screen.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 
 class FavoritesScreen extends StatefulWidget {
+  const FavoritesScreen({super.key});
+
   @override
   _FavoritesScreenState createState() => _FavoritesScreenState();
 }
@@ -18,71 +23,50 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   List<Toy> favoriteToys = [];
 
   @override
-  void initState() {
-    super.initState();
-    fetchFavoriteToys();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadFavoritesFromProvider();
   }
 
-  Future<void> fetchFavoriteToys() async {
+  Future<void> _loadFavoritesFromProvider() async {
+    final auth = Provider.of<AuthProvider>(context, listen: true);
+    final favoriteIds = auth.user?.favoriteToys ?? [];
+    final toys = Provider.of<AuthProvider>(context).allToys;
+    var favoriteToys = toys.where((t) => favoriteIds.contains(t.id)).toList();
+
+    if (favoriteToys.isEmpty) {
+      if (mounted) setState(() => favoriteToys = []);
+      return;
+    }
+
     try {
-      final response =
-          await http.get(Uri.parse('http://10.0.2.2:5000/api/toys'));
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
+      final response = await http.post(
+        Uri.parse('http://10.0.2.2:5000/api/toys/by-ids'),
+        body: jsonEncode({'ids': favoriteIds}),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200 && mounted) {
         setState(() {
-          favoriteToys = data
-              .map((item) => Toy.fromJson(item))
-              .where((toy) => toy.favorites)
+          favoriteToys = (jsonDecode(response.body) as List)
+              .map<Toy>((item) => Toy.fromJson(item))
               .toList();
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Favoris chargés avec succès')),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur lors du chargement des favoris')),
-        );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erreur lors de la récupération des favoris: $e')),
-      );
-    }
-  }
-
-  Future<void> _toggleFavorite(Toy toy) async {
-    try {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Mise à jour des favoris en cours...')),
-      );
-
-      final response = await http.patch(
-        Uri.parse('http://10.0.2.2:5000/api/toys/${toy.id}/favorites'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'favorites': !toy.favorites}),
-      );
-
-      if (response.statusCode == 200) {
-        setState(() {
-          toy.favorites = !toy.favorites;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Favori mis à jour avec succès')),
-        );
-      } else {
-        throw Exception('Erreur lors de la mise à jour des favoris');
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Erreur lors de la mise à jour des favoris: $e')),
+        SnackBar(content: Text('Erreur: ${e.toString()}')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final favoriteIds = auth.user?.favoriteToys ?? [];
+    final toys = Provider.of<AuthProvider>(context).allToys;
+    final favoriteToys = toys.where((t) => favoriteIds.contains(t.id)).toList();
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 42, 149, 156),
@@ -142,7 +126,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       ),
                     );
                     if (result == true) {
-                      await fetchFavoriteToys();
+                      await _loadFavoritesFromProvider();
                     }
                   },
                   child: SizedBox(
@@ -157,25 +141,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               SizedBox(
                                 height: 180,
                                 width: double.infinity,
-                                child: favoriteToys[index].imageUrl.isNotEmpty
-                                    ? Image.network(
-                                        favoriteToys[index].imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                          return Container(
-                                            color: Colors.grey[200],
-                                            child: Icon(Icons.error_outline,
-                                                color: Colors.grey[400],
-                                                size: 40),
-                                          );
-                                        },
-                                      )
-                                    : Container(
-                                        color: Colors.grey[200],
-                                        child: Icon(Icons.image_not_supported,
-                                            color: Colors.grey[400], size: 40),
-                                      ),
+                                child:
+                                    (favoriteToys[index].imageUrl?.isNotEmpty ??
+                                            false)
+                                        ? Image.network(
+                                            favoriteToys[index].imageUrl!,
+                                            fit: BoxFit.cover)
+                                        : Placeholder(),
                               ),
                               Positioned(
                                 bottom: 8,
@@ -190,14 +162,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   child: IconButton(
                                     padding: EdgeInsets.zero,
                                     icon: Icon(
-                                      favoriteToys[index].favorites
+                                      auth.user?.favoriteToys?.contains(
+                                                  favoriteToys[index].id) ??
+                                              false
                                           ? Icons.favorite
                                           : Icons.favorite_border,
                                       color: Colors.red,
-                                      size: 20,
                                     ),
-                                    onPressed: () =>
-                                        _toggleFavorite(favoriteToys[index]),
+                                    onPressed: () => Provider.of<AuthProvider>(
+                                            context,
+                                            listen: false)
+                                        .toggleFavorite(favoriteToys[index].id),
                                   ),
                                 ),
                               ),
@@ -210,7 +185,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    favoriteToys[index].name,
+                                    favoriteToys[index].name ??
+                                        'Nom non disponible',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
@@ -221,7 +197,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   SizedBox(height: 6),
                                   Expanded(
                                     child: Text(
-                                      favoriteToys[index].description,
+                                      favoriteToys[index].description ??
+                                          'Description non disponible',
                                       style: TextStyle(
                                         fontSize: 14,
                                         color: Colors.grey[600],

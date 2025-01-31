@@ -4,8 +4,12 @@ import 'dart:io';
 import '../models/user.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
+import '../providers/auth_provider.dart';
+import '../config/app_routes.dart';
 
 class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
 }
@@ -13,6 +17,11 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _imageFile;
+
+  @override
+  void initState() {
+    super.initState();
+  }
 
   Future<void> _pickImage() async {
     try {
@@ -105,214 +114,229 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // Données temporaires pour le prototype
-  final User mockUser = User(
-    id: '1',
-    username: 'Kevin F.',
-    email: 'kevinthelol@gmail.com',
-    profileImageUrl: null,
-    rating: 4.9,
-    responseTimeMinutes: 20,
-    totalListings: 12,
-    completedTransactions: 8,
-    memberSince: '2024-01',
-  );
-
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: const Color.fromARGB(255, 42, 149, 156),
         title: Row(
           children: [
-            Image.asset(
-              'assets/images/troky_logo.webp',
-              height: 40,
-              fit: BoxFit.contain,
-            ),
-            SizedBox(width: 8),
+            Image.asset('assets/images/troky_logo.webp', height: 40),
+            SizedBox(width: 10),
             Text(
-              'Mon Profil',
+              'Profil',
               style: TextStyle(color: Colors.white),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.brightness_6,
-                color: Theme.of(context).colorScheme.onPrimary),
-            onPressed: () {
-              Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-            },
+            icon: Icon(Icons.logout),
+            onPressed: () => _logout(context),
           ),
         ],
       ),
-      body: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              // En-tête du profil
-              Container(
-                padding: EdgeInsets.all(16),
-                color: Theme.of(context).colorScheme.surface,
-                child: Column(
-                  children: [
-                    // Photo de profil
-                    Stack(
-                      alignment: Alignment.bottomRight,
+      body: user == null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text('Connectez-vous pour accéder à votre profil'),
+                  SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, AppRoutes.login);
+                    },
+                    child: Text('Se connecter'),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  // En-tête du profil
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    color: Theme.of(context).colorScheme.surface,
+                    child: Column(
                       children: [
-                        CircleAvatar(
-                          radius: 50,
-                          backgroundColor: Colors.grey[200],
-                          backgroundImage: _imageFile != null
-                              ? FileImage(_imageFile!)
-                              : (mockUser.profileImageUrl != null
-                                  ? NetworkImage(mockUser.profileImageUrl!)
-                                      as ImageProvider
-                                  : null),
-                          child: (_imageFile == null &&
-                                  mockUser.profileImageUrl == null)
-                              ? Icon(Icons.person, size: 50, color: Colors.grey)
-                              : null,
-                        ),
-                        GestureDetector(
-                          onTap: _showImageSourceDialog,
-                          child: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: Color.fromARGB(255, 42, 149, 156),
-                            child: Icon(
-                              Icons.camera_alt,
-                              size: 18,
-                              color: Colors.white,
+                        // Photo de profil
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            CircleAvatar(
+                              radius: 50,
+                              backgroundColor: Colors.grey[200],
+                              backgroundImage: _imageFile != null
+                                  ? FileImage(_imageFile!)
+                                  : (user.profileImageUrl != null
+                                      ? NetworkImage(user.profileImageUrl!)
+                                      : null),
+                              child: (_imageFile == null &&
+                                      user.profileImageUrl == null)
+                                  ? Icon(Icons.person,
+                                      size: 50, color: Colors.white)
+                                  : null,
                             ),
+                            GestureDetector(
+                              onTap: _showImageSourceDialog,
+                              child: CircleAvatar(
+                                radius: 18,
+                                backgroundColor:
+                                    Color.fromARGB(255, 42, 149, 156),
+                                child: Icon(
+                                  Icons.camera_alt,
+                                  size: 18,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 16),
+                        Text(
+                          user.username ?? 'Utilisateur',
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
                           ),
+                        ),
+                        SizedBox(height: 8),
+                        Text(
+                          user.email ?? '',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        // Note
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            ...List.generate(5, (index) {
+                              return Icon(
+                                index < (user.rating ?? 0)
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: Colors.amber,
+                                size: 24,
+                              );
+                            }),
+                            SizedBox(width: 8),
+                            Text(
+                              user.rating.toString(),
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Theme.of(context).colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
-                    // Pseudo
-                    Text(
-                      mockUser.username,
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    // Note
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                  ),
+                  SizedBox(height: 16),
+                  // Statistiques
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    color: Theme.of(context).colorScheme.surface,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ...List.generate(5, (index) {
-                          return Icon(
-                            index < mockUser.rating
-                                ? Icons.star
-                                : Icons.star_border,
-                            color: Colors.amber,
-                            size: 24,
-                          );
-                        }),
-                        SizedBox(width: 8),
                         Text(
-                          mockUser.rating.toString(),
+                          'Statistiques',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.onSurface,
                           ),
                         ),
+                        SizedBox(height: 16),
+                        _buildStatItem(
+                          icon: Icons.timer,
+                          title: 'Temps de réponse moyen',
+                          value: user.responseTimeMinutes != null
+                              ? '${user.responseTimeMinutes} minutes'
+                              : 'Non disponible',
+                        ),
+                        _buildStatItem(
+                          icon: Icons.list_alt,
+                          title: 'Annonces publiées',
+                          value: user.totalListings?.toString() ?? '0',
+                        ),
+                        _buildStatItem(
+                          icon: Icons.swap_horiz,
+                          title: 'Échanges réalisés',
+                          value: user.completedTransactions?.toString() ?? '0',
+                        ),
+                        _buildStatItem(
+                          icon: Icons.calendar_today,
+                          title: 'Membre depuis',
+                          value: user.memberSince ?? 'Date inconnue',
+                        ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 16),
+                  // Menu d'actions
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    color: Theme.of(context).colorScheme.surface,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Actions',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
+                        ),
+                        SizedBox(height: 16),
+                        _buildActionButton(
+                          icon: Icons.edit,
+                          title: 'Modifier le profil',
+                          onTap: () {
+                            // Navigation vers modification profil
+                          },
+                        ),
+                        _buildActionButton(
+                          icon: Icons.history,
+                          title: 'Historique des échanges',
+                          onTap: () {
+                            // Navigation vers historique
+                          },
+                        ),
+                        _buildActionButton(
+                          icon: Icons.help_outline,
+                          title: 'Aide et support',
+                          onTap: () {
+                            // Navigation vers aide
+                          },
+                        ),
+                        // Bouton de thème en bas
+                        _buildActionButton(
+                          icon: Icons.brightness_6,
+                          title: Theme.of(context).brightness == Brightness.dark
+                              ? 'Passer en mode clair'
+                              : 'Passer en mode sombre',
+                          onTap: () {
+                            Theme.of(context)
+                                .copyWith(brightness: Brightness.dark);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              SizedBox(height: 16),
-              // Statistiques
-              Container(
-                padding: EdgeInsets.all(16),
-                color: Theme.of(context).colorScheme.surface,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Statistiques',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    _buildStatItem(
-                      icon: Icons.timer,
-                      title: 'Temps de réponse moyen',
-                      value: '${mockUser.responseTimeMinutes} minutes',
-                    ),
-                    _buildStatItem(
-                      icon: Icons.list_alt,
-                      title: 'Annonces publiées',
-                      value: mockUser.totalListings.toString(),
-                    ),
-                    _buildStatItem(
-                      icon: Icons.swap_horiz,
-                      title: 'Échanges réalisés',
-                      value: mockUser.completedTransactions.toString(),
-                    ),
-                    _buildStatItem(
-                      icon: Icons.calendar_today,
-                      title: 'Membre depuis',
-                      value: mockUser.memberSince,
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(height: 16),
-              // Menu d'actions
-              Container(
-                padding: EdgeInsets.all(16),
-                color: Theme.of(context).colorScheme.surface,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Actions',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    _buildActionButton(
-                      icon: Icons.edit,
-                      title: 'Modifier le profil',
-                      onTap: () {
-                        // Navigation vers modification profil
-                      },
-                    ),
-                    _buildActionButton(
-                      icon: Icons.history,
-                      title: 'Historique des échanges',
-                      onTap: () {
-                        // Navigation vers historique
-                      },
-                    ),
-                    _buildActionButton(
-                      icon: Icons.help_outline,
-                      title: 'Aide et support',
-                      onTap: () {
-                        // Navigation vers aide
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 
@@ -379,6 +403,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _logout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Déconnexion'),
+          content: Text('Êtes-vous sûr de vouloir vous déconnecter ?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () {
+                Provider.of<AuthProvider>(context, listen: false).logout();
+                Navigator.of(context).pushReplacementNamed(AppRoutes.login);
+              },
+              child: Text('Déconnexion', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        );
+      },
     );
   }
 }
