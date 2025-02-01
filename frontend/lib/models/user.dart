@@ -1,57 +1,53 @@
 class User {
   final String id;
-  final String? username;
-  final String? email;
-  final String? profileImageUrl;
+  final String email;
+  final String name;
+  final String? profileImage;
   final double? rating;
   final int? reviewsCount;
   final int? responseTimeMinutes;
   final int? totalListings;
   final int? completedTransactions;
   final String? memberSince;
-  List<String> favoriteToys;
+  final List<String>? favoriteToys;
+  final String? profileImageUrl;
 
   User({
     required this.id,
-    this.username = 'Utilisateur',
-    this.email = '',
-    this.profileImageUrl,
+    required this.email,
+    required this.name,
+    this.profileImage,
     this.rating,
     this.reviewsCount,
     this.responseTimeMinutes,
     this.totalListings,
     this.completedTransactions,
     this.memberSince,
-    this.favoriteToys = const [],
+    this.favoriteToys,
+    this.profileImageUrl,
   });
 
-  factory User.fromJson(dynamic json) {
-    if (json is List) {
-      throw FormatException("Réponse serveur invalide");
-    }
-    final map = json as Map<String, dynamic>;
+  factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: map['_id']?.toString() ?? map['userId']?.toString() ?? '',
-      username: map['name'] ?? map['username'] ?? 'Utilisateur',
-      email: map['email'] ?? '',
-      profileImageUrl: map['profileImage'] ?? map['profileImageUrl'],
-      rating: map['rating'] != null ? (map['rating'] as num).toDouble() : null,
-      reviewsCount:
-          map['reviewsCount'] != null ? map['reviewsCount'] as int : 0,
-      responseTimeMinutes: map['responseTimeMinutes'],
-      totalListings: map['totalListings'],
-      completedTransactions: map['completedTransactions'],
-      memberSince: map['memberSince'],
-      favoriteToys: map['favoriteToys'] != null
-          ? List<String>.from(map['favoriteToys'])
-          : [],
+      id: json['_id'] ?? json['id'] ?? json['userId'] ?? '',
+      email: json['email'] ?? '',
+      name: json['name'] ?? '',
+      profileImage: json['profileImage'],
+      rating: json['rating'],
+      reviewsCount: json['reviewsCount'] ?? 0,
+      responseTimeMinutes: json['responseTimeMinutes'],
+      totalListings: json['totalListings'],
+      completedTransactions: json['completedTransactions'],
+      memberSince: json['memberSince'],
+      favoriteToys: List<String>.from(json['favoriteToys'] ?? []),
+      profileImageUrl: json['profileImageUrl'],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       '_id': id,
-      'name': username,
+      'name': name,
       'email': email,
       'profileImage': profileImageUrl,
       'rating': rating,
@@ -67,9 +63,9 @@ class User {
   User copyWith({List<String>? favoriteToys}) {
     return User(
       id: id,
-      username: username,
       email: email,
-      profileImageUrl: profileImageUrl,
+      name: name,
+      profileImage: profileImage,
       rating: rating,
       reviewsCount: reviewsCount,
       responseTimeMinutes: responseTimeMinutes,
@@ -77,6 +73,7 @@ class User {
       completedTransactions: completedTransactions,
       memberSince: memberSince,
       favoriteToys: favoriteToys ?? this.favoriteToys,
+      profileImageUrl: profileImageUrl,
     );
   }
 }

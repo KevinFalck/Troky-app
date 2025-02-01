@@ -37,9 +37,6 @@ const userSchema = new mongoose.Schema({
 userSchema.methods.toggleFavorite = async function (toyId) {
   if (!toyId) throw new Error("ID de jouet requis");
 
-  // Vérification de l'existence de l'instance
-  if (!this) throw new Error("Utilisateur non initialisé");
-
   let toyObjectId;
   try {
     toyObjectId = new mongoose.Types.ObjectId(toyId);
@@ -49,11 +46,10 @@ userSchema.methods.toggleFavorite = async function (toyId) {
 
   const index = this.favoriteToys.findIndex((t) => t.equals(toyObjectId));
   if (index > -1) {
-    this.favoriteToys.splice(index, 1); // Plus performant que pull
+    this.favoriteToys.splice(index, 1);
   } else {
     this.favoriteToys.push(toyObjectId);
   }
-
   return this.save();
 };
 

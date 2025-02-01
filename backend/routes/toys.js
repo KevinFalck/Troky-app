@@ -6,41 +6,51 @@ const router = express.Router();
 
 // Route pour créer un nouveau jouet
 router.post("/", async (req, res) => {
-  const { name, description, imageUrl, location, latitude, longitude } =
-    req.body;
-
-  const missingFields = [
-    "name",
-    "description",
-    "imageUrl",
-    "location",
-    "latitude",
-    "longitude",
-  ].filter((field) => !req.body[field]);
-  if (missingFields.length > 0) {
-    return res.status(400).json({
-      message: "Champs manquants: " + missingFields.join(", "),
-      receivedData: req.body,
-    });
-  }
-
-  const toy = new Toy({
-    name,
-    description,
-    imageUrl,
-    location,
-    coordinates: {
-      type: "Point",
-      coordinates: [parseFloat(longitude), parseFloat(latitude)],
-    },
-  });
-
   try {
-    const savedToy = await toy.save();
-    res.status(201).json(savedToy);
+    const {
+      name,
+      description,
+      imageUrl,
+      location,
+      latitude,
+      longitude,
+      owner,
+    } = req.body;
+
+    // Vérification simple des champs requis
+    if (
+      !name ||
+      !description ||
+      !imageUrl ||
+      !location ||
+      !latitude ||
+      !longitude ||
+      !owner
+    ) {
+      return res.status(400).json({ message: "Tous les champs sont requis" });
+    }
+
+    const toy = new Toy({
+      name,
+      description,
+      imageUrl,
+      location,
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+      coordinates: {
+        type: "Point",
+        coordinates: [parseFloat(longitude), parseFloat(latitude)],
+      },
+      owner,
+    });
+
+    await toy.save();
+    res.status(201).json(toy);
   } catch (error) {
-    console.error("Erreur lors de la création du jouet:", error);
-    res.status(500).json({ message: "Erreur lors de la création du jouet" });
+    res.status(500).json({
+      message: "Erreur lors de la création du jouet",
+      error: error.message,
+    });
   }
 });
 
@@ -48,6 +58,7 @@ router.post("/", async (req, res) => {
 router.get("/", async (req, res) => {
   try {
     const toys = await Toy.find();
+    console.log("Toys récupérés :", toys); // Log pour vérifier le contenu
     res.json(toys);
   } catch (error) {
     res

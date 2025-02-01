@@ -16,6 +16,7 @@ class AuthProvider with ChangeNotifier {
   final NavigationService _navigationService = NavigationService();
   bool _isAuthenticated = false;
   List<Toy> allToys = [];
+  String? _token;
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
@@ -26,6 +27,7 @@ class AuthProvider with ChangeNotifier {
   String? get userId => _userId;
   User? get user => _user;
   bool get isAuthenticated => _isAuthenticated;
+  String? get token => _token;
 
   void updateUser(User newUser) {
     _user = newUser;
@@ -37,15 +39,32 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> login(String userId) async {
-    _isAuthenticated = true;
-    notifyListeners();
+  Future<void> login(String email, String password) async {
+    final response = await http.post(
+      Uri.parse('http://10.0.2.2:5000/auth/login'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'email': email,
+        'password': password,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      _token = data['token'];
+      _user = User.fromJson(data);
+      _isAuthenticated = true;
+      notifyListeners();
+    } else {
+      throw Exception('Erreur lors du login');
+    }
   }
 
   void logout() {
     _userId = null;
     _user = null;
     _isAuthenticated = false;
+    _token = null;
     notifyListeners();
   }
 
@@ -69,13 +88,10 @@ class AuthProvider with ChangeNotifier {
       }
 
       final response = await http.post(
-        Uri.parse('${Env.backendUrl}/auth/google'),
+        Uri.parse('http://10.0.2.2:5000/auth/google'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'idToken': googleAuth.idToken,
-          'email': googleUser.email,
-          'name': googleUser.displayName,
-          'photoUrl': googleUser.photoUrl,
         }),
       );
 
@@ -83,8 +99,8 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final user = User.fromJson(data);
-        updateUser(user);
+        _token = data['token'];
+        updateUserFromJson(data);
         _isAuthenticated = true;
         notifyListeners();
 
@@ -134,5 +150,18 @@ class AuthProvider with ChangeNotifier {
   Future<User?> signInWithGoogle(BuildContext context) async {
     await handleGoogleSignIn(context);
     return _user;
+  }
+
+  void updateToken(String newToken) {
+    _token = newToken;
+    notifyListeners();
+  }
+
+  void updateUserFromJson(Map<String, dynamic> json) {
+    final userData = json.containsKey('user') ? json['user'] : json;
+    print("Données utilisateur reçues : $userData");
+    _user = User.fromJson(userData);
+    print("ID utilisateur assigné : ${_user?.id}");
+    notifyListeners();
   }
 }

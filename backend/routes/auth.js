@@ -1,8 +1,9 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const { OAuth2Client } = require("google-auth-library");
-const isAuthenticated = require("../middleware/isAuthenticated"); // Utilisé pour vérifier que req.user existe
+const { jwtAuth } = require("../middleware/jwtAuth");
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const router = express.Router();
 
@@ -26,10 +27,16 @@ router.post("/login", async (req, res) => {
       user.password = undefined;
     }
 
-    // Retourne les informations de l'utilisateur incluant le système d'avis
+    // Génération du token avec une durée d'expiration (1 jour par exemple)
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+    // Retourne les informations de l'utilisateur et le token
     res.json({
       message: "Connexion réussie",
       userId: user._id,
+      token,
       email: user.email,
       name: user.name,
       profileImage: user.profileImage,
@@ -55,7 +62,18 @@ router.post("/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({ email, password: hashedPassword });
     await newUser.save();
-    res.status(201).json({ message: "Utilisateur créé avec succès" });
+
+    // Génération du token pour le nouvel utilisateur
+    const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+    res.status(201).json({
+      message: "Utilisateur créé avec succès",
+      userId: newUser._id,
+      token,
+      email: newUser.email,
+    });
   } catch (error) {
     console.error("Erreur lors de l'inscription:", error);
     res.status(500).json({ message: "Erreur lors de l'inscription" });
@@ -92,17 +110,25 @@ router.post("/google", async (req, res) => {
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
+    // Générer un token JWT pour l'utilisateur connecté (compatible avec jwtAuth)
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1d",
+    });
+
+    // Si l'utilisateur est un compte Google, ne pas renvoyer le mot de passe
     if (user.googleId && !user.password) {
       user.password = undefined;
     }
 
     res.status(200).json({
+      token, // On renvoie le token ici
       userId: user._id.toString(),
       email: user.email,
       name: user.name,
       profileImage: user.profileImage,
       rating: user.rating,
       reviewsCount: user.reviewsCount,
+      favoriteToys: user.favoriteToys,
     });
   } catch (error) {
     console.error("Erreur Google :", error);
@@ -111,14 +137,12 @@ router.post("/google", async (req, res) => {
 });
 
 // Route pour récupérer le profil de l'utilisateur
-router.get("/profile", async (req, res) => {
+router.get("/profile", jwtAuth, async (req, res) => {
   try {
-    // Supposons que l'authentification est gérée via un middleware qui ajoute req.user
     const user = await User.findById(req.user.id);
     if (!user) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
-
     res.status(200).json({
       _id: user._id,
       email: user.email,
@@ -134,32 +158,26 @@ router.get("/profile", async (req, res) => {
   }
 });
 
-// Route pour mettre à jour la photo de profil (attend { profileImage: "URL", userId: "..." } dans le body)
-router.patch("/profile/image", isAuthenticated, async (req, res) => {
+// Route pour mettre à jour la photo de profil (attend { profileImage: "URL" } dans le body)
+router.patch("/profile/image", jwtAuth, async (req, res) => {
   try {
     const newPhotoUrl = req.body.profileImage;
     if (!newPhotoUrl) {
       return res.status(400).json({ message: "L'URL de la photo est requise" });
     }
-    // Si req.user n'existe pas (problème de session), on tente de récupérer l'identifiant fourni dans le body
-    const userId = req.user?.id || req.body.userId;
-    if (!userId) {
-      return res.status(401).json({ message: "Non authentifié" });
-    }
     const updatedUser = await User.findByIdAndUpdate(
-      userId,
+      req.user.id,
       { profileImage: newPhotoUrl },
       { new: true }
     );
     if (!updatedUser) {
       return res.status(404).json({ message: "Utilisateur non trouvé" });
     }
-    // Retourner la propriété sous le nom "profileImageUrl" pour être cohérent côté frontend
     res.status(200).json({
       _id: updatedUser._id,
       email: updatedUser.email,
       name: updatedUser.name,
-      profileImageUrl: updatedUser.profileImage,
+      profileImage: updatedUser.profileImage,
       rating: updatedUser.rating,
       reviewsCount: updatedUser.reviewsCount,
       favoriteToys: updatedUser.favoriteToys,
@@ -169,9 +187,9 @@ router.patch("/profile/image", isAuthenticated, async (req, res) => {
       "Erreur lors de la mise à jour de la photo de profil :",
       error
     );
-    res.status(500).json({
-      message: "Erreur lors de la mise à jour de la photo de profil",
-    });
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la mise à jour de la photo de profil" });
   }
 });
 

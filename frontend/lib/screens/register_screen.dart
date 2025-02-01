@@ -35,9 +35,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }),
       );
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         final data = json.decode(response.body);
-        Provider.of<AuthProvider>(context, listen: false).login(data['userId']);
+        Provider.of<AuthProvider>(context, listen: false)
+            .login(data['userId'], data['token']);
         Navigator.of(context).pushReplacementNamed(AppRoutes.home);
       } else {
         final errorBody = json.decode(response.body);

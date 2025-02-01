@@ -43,7 +43,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       print('Erreur lors de la sélection de l\'image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de la sélection de l\'image')),
+        const SnackBar(
+          content: Text('Erreur lors de la sélection de l\'image'),
+        ),
       );
     }
   }
@@ -135,7 +137,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de l\'upload de l\'image: $e')),
+        SnackBar(
+          content: Text('Erreur lors de l\'upload de l\'image: $e'),
+        ),
       );
       rethrow;
     }
@@ -143,24 +147,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _uploadAndUpdateProfile(XFile imageFile) async {
     try {
-      // 1. Upload vers S3 (même logique que pour AddToyScreen)
+      // 1. Upload de l'image vers S3
       final String imageUrl = await _uploadImage(imageFile);
+      print("URL d'image récupérée : $imageUrl");
 
       // 2. Mise à jour du profil via PATCH /auth/profile/image
-      final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final currentUser = authProvider.user;
+      final token = authProvider.token; // Vérifiez que token n'est pas null
+      print("Token utilisé pour la mise à jour: $token");
+      print("ID de l'utilisateur : ${currentUser?.id}");
+
       final updateUri = Uri.parse('http://10.0.2.2:5000/auth/profile/image');
       final updateResponse = await http.patch(
         updateUri,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+        // Le backend utilise req.user.id pour identifier l'utilisateur, inutile de passer "userId"
         body: json.encode({
           'profileImage': imageUrl,
-          'userId': currentUser?.id,
         }),
       );
+      print("Reponse PATCH: ${updateResponse.statusCode}");
+      print("Body PATCH: ${updateResponse.body}");
+
       if (updateResponse.statusCode == 200) {
         final updateData = json.decode(updateResponse.body);
-        Provider.of<AuthProvider>(context, listen: false)
-            .updateUser(User.fromJson(updateData));
+        authProvider.updateUser(User.fromJson(updateData));
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Photo de profil mise à jour')),
         );
@@ -168,6 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         throw Exception('Erreur lors de la mise à jour de la photo de profil');
       }
     } catch (e) {
+      print("Erreur dans _uploadAndUpdateProfile: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: ${e.toString()}')),
       );
@@ -224,7 +240,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     color: Theme.of(context).colorScheme.surface,
                     child: Column(
                       children: [
-                        // Photo de profil
+                        // Photo de profil avec possibilité de modification
                         Stack(
                           alignment: Alignment.bottomRight,
                           children: [
@@ -233,11 +249,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               backgroundColor: Colors.grey[200],
                               backgroundImage: _imageFile != null
                                   ? FileImage(File(_imageFile!.path))
-                                  : (user.profileImageUrl != null
-                                      ? NetworkImage(user.profileImageUrl!)
+                                  : (user.profileImage != null
+                                      ? NetworkImage(user.profileImage!)
                                       : null),
                               child: (_imageFile == null &&
-                                      user.profileImageUrl == null)
+                                      user.profileImage == null)
                                   ? Icon(Icons.person,
                                       size: 50, color: Colors.white)
                                   : null,
@@ -259,7 +275,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         SizedBox(height: 16),
                         Text(
-                          user.username ?? 'Utilisateur',
+                          user.name,
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
@@ -267,13 +283,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         SizedBox(height: 8),
                         Text(
-                          user.email ?? '',
+                          user.email,
                           style: TextStyle(
                             fontSize: 16,
                             color: Colors.grey,
                           ),
                         ),
-                        // Note
+                        // Affichage de la note et avis
                         ReviewIndicator(
                           rating: user.rating,
                           reviewsCount: user.reviewsCount,
@@ -339,24 +355,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           icon: Icons.edit,
                           title: 'Modifier le profil',
                           onTap: () {
-                            // Navigation vers modification profil
+                            // Navigation vers la page de modification du profil
                           },
                         ),
                         _buildActionButton(
                           icon: Icons.history,
                           title: 'Historique des échanges',
                           onTap: () {
-                            // Navigation vers historique
+                            // Navigation vers l'historique
                           },
                         ),
                         _buildActionButton(
                           icon: Icons.help_outline,
                           title: 'Aide et support',
                           onTap: () {
-                            // Navigation vers aide
+                            // Navigation vers l'aide
                           },
                         ),
-                        // Bouton de thème en bas
+                        // Bouton pour changer de thème
                         _buildActionButton(
                           icon: Icons.brightness_6,
                           title:
@@ -467,7 +483,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Provider.of<AuthProvider>(context, listen: false).logout();
                 Navigator.of(context).pushReplacementNamed(AppRoutes.login);
               },
-              child: Text('Déconnexion', style: TextStyle(color: Colors.red)),
+              child: Text('Déconnexion',
+                  style: TextStyle(color: Colors.red)),
             ),
           ],
         );
@@ -495,7 +512,6 @@ class ReviewIndicator extends StatelessWidget {
       );
     }
 
-    // Calcul du nombre d'étoiles pleines et détection éventuelle d'une demi-étoile
     int fullStars = rating!.floor();
     bool hasHalfStar = (rating! - fullStars) >= 0.5;
 

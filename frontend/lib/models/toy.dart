@@ -3,43 +3,30 @@ import 'user.dart';
 
 class Toy {
   final String id;
-  final String? name;
-  final String? description;
-  final String? imageUrl;
-  final String? location;
+  final String name;
+  final String description;
+  final String imageUrl;
+  final String location;
+  final double latitude;
+  final double longitude;
+  final String owner;
   final double? price;
   final bool? isAvailable;
-  final User? owner;
   bool isFavorite = false;
-
-  double get latitude {
-    if (coordinates['coordinates'] == null ||
-        coordinates['coordinates'].length < 2) {
-      return 0.0;
-    }
-    return coordinates['coordinates'][1];
-  }
-
-  double get longitude {
-    if (coordinates['coordinates'] == null ||
-        coordinates['coordinates'].isEmpty) {
-      return 0.0;
-    }
-    return coordinates['coordinates'][0];
-  }
-
-  final Map<String, dynamic> coordinates;
+  final Map<String, dynamic>? coordinates;
 
   Toy({
     required this.id,
-    this.name,
-    this.description,
-    this.imageUrl,
-    this.location,
+    required this.name,
+    required this.description,
+    required this.imageUrl,
+    required this.location,
+    required this.latitude,
+    required this.longitude,
+    required this.owner,
     this.price,
     this.isAvailable,
-    this.owner,
-    required this.coordinates,
+    this.coordinates,
   });
 
   Toy copyWith() {
@@ -49,28 +36,38 @@ class Toy {
       description: description,
       imageUrl: imageUrl,
       location: location,
+      latitude: latitude,
+      longitude: longitude,
+      owner: owner,
       price: price,
       isAvailable: isAvailable,
-      owner: owner,
       coordinates: coordinates,
     );
   }
 
   factory Toy.fromJson(Map<String, dynamic> json) {
+    final ownerValue = json['owner'];
+    String ownerId = '';
+    if (ownerValue is Map<String, dynamic>) {
+      ownerId = ownerValue['_id'] ?? '';
+    } else if (ownerValue is String) {
+      ownerId = ownerValue;
+    }
+
     return Toy(
-      id: json['_id']?.toString() ?? '',
-      name: json['name'] ?? 'Jouet sans nom',
+      id: json['_id'] ?? '',
+      name: json['name'] ?? '',
       description: json['description'] ?? '',
-      imageUrl: json['imageUrl'],
-      location: json['location'] ?? 'Localisation inconnue',
+      imageUrl: json['imageUrl'] ?? '',
+      location: json['location'] ?? '',
+      latitude: (json['latitude'] as num).toDouble(),
+      longitude: (json['longitude'] as num).toDouble(),
+      owner: ownerId,
       price: json['price']?.toDouble(),
       isAvailable: json['isAvailable'],
-      owner: json['owner'] != null ? User.fromJson(json['owner']) : null,
-      coordinates: json['coordinates'] ??
-          {
-            'type': 'Point',
-            'coordinates': [0.0, 0.0]
-          },
+      coordinates: json['coordinates'] is Map<String, dynamic>
+          ? Map<String, dynamic>.from(json['coordinates'])
+          : null,
     );
   }
 

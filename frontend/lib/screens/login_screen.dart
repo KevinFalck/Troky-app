@@ -25,8 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _login() async {
     final response = await http.post(
-      Uri.parse(
-          'http://10.0.2.2:5000/auth/login'), // Remplacez par l'URL de votre backend
+      Uri.parse('http://10.0.2.2:5000/auth/login'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode({
         'email': _emailController.text,
@@ -36,22 +35,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
-      // Gérer la connexion réussie
       print('Connexion réussie: ${data['message']}');
-      // Mettez à jour l'état d'authentification
-      Provider.of<AuthProvider>(context, listen: false).login(data['userId']);
-      // Afficher une notification de succès
+      // Mettez à jour l'état d'authentification avec le userId et le token
+      Provider.of<AuthProvider>(context, listen: false)
+          .login(data['userId'], data['token']);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Connexion réussie!')),
       );
-      // Redirige vers MainScreen au lieu de add-toy
-      Navigator.of(context)
-          .pushReplacementNamed('/'); // Redirige vers MainScreen
+      Navigator.of(context).pushReplacementNamed('/');
     } else {
-      // Gérer les erreurs
       final data = json.decode(response.body);
       print('Erreur: ${data['message']}');
-      // Afficher une notification d'erreur
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erreur: ${data['message']}')),
       );

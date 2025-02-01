@@ -13,7 +13,6 @@ app.use(cors());
 app.use(express.json());
 
 // Configuration S3
-// @ts-ignore
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
   credentials: {
@@ -27,26 +26,21 @@ const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
 // Route d'upload
-// @ts-ignore
 app.post("/api/upload", upload.single("image"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded" });
     }
-
     const randomName = crypto.randomBytes(16).toString("hex");
     const fileExtension = req.file.originalname.split(".").pop();
     const key = `${randomName}.${fileExtension}`;
-
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
     });
-
     await s3Client.send(command);
-
     const imageUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
     res.json({ imageUrl });
   } catch (error) {
@@ -67,14 +61,13 @@ app.use("/auth", authRouter);
 const usersRouter = require("./routes/users");
 app.use("/api/users", usersRouter);
 
-// @ts-ignore
+// Middleware log (facultatif)
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
 
 // Connexion MongoDB
-// @ts-ignore
 mongoose
   .connect(process.env.MONGODB_URI || "")
   .then(() => console.log("Connecté à MongoDB"))
