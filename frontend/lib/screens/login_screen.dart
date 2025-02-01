@@ -58,6 +58,30 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _loginWithGoogle() async {
+    try {
+      // Appel en passant bien le contexte
+      final user = await Provider.of<AuthProvider>(context, listen: false)
+          .signInWithGoogle(context);
+
+      if (user != null && (user.email?.isNotEmpty ?? false)) {
+        // Notification de succès
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Connecté avec ${user.email}')),
+        );
+        // Redirection ou autres actions après connexion réussie…
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur lors du login : utilisateur inconnu')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors du login : ${e.toString()}')),
+      );
+    }
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -118,21 +142,22 @@ class _LoginScreenState extends State<LoginScreen> {
               child: Text('Pas encore inscrit ? Créez un compte'),
             ),
             ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  await Provider.of<AuthProvider>(context, listen: false)
-                      .handleGoogleSignIn(context);
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur Google: ${e.toString()}')),
-                  );
-                }
-              },
-              icon: Image.asset('assets/images/google_logo.webp', width: 24),
-              label: Text('Continuer avec Google'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                side: BorderSide(color: Colors.grey),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onPressed: _loginWithGoogle,
+              icon: Image.asset(
+                'assets/images/google_logo.webp',
+                height: 24.0,
+              ),
+              label: Text(
+                'Connexion avec Google',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],

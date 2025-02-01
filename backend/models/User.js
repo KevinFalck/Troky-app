@@ -21,9 +21,16 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
   },
-  name: String,
-  profileImage: String,
+  name: {
+    type: String,
+  },
+  profileImage: {
+    type: String,
+  },
   favoriteToys: [{ type: mongoose.Schema.Types.ObjectId, ref: "Toy" }],
+  // Système d'avis : moyenne et nombre total d'avis
+  rating: { type: Number, default: null }, // null signifie "aucun avis"
+  reviewsCount: { type: Number, default: 0 },
 });
 
 // Ajouter une méthode pour gérer les favoris
