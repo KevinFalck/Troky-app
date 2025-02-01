@@ -25,4 +25,21 @@ router.patch("/:id/favorites", async (req, res) => {
   }
 });
 
+// Route pour récupérer un utilisateur par son id
+router.get("/:id", async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (user) {
+      res.json(user);
+    } else {
+      res.status(404).json({ message: "Utilisateur non trouvé" });
+    }
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la récupération de l'utilisateur" });
+  }
+});
+
 module.exports = router;

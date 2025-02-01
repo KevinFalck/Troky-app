@@ -12,7 +12,7 @@ import '../providers/auth_provider.dart';
 import '../models/user.dart';
 
 class ToyListScreen extends StatefulWidget {
-  const ToyListScreen({super.key});
+  const ToyListScreen({Key? key}) : super(key: key);
 
   @override
   _ToyListScreenState createState() => _ToyListScreenState();
@@ -27,11 +27,12 @@ class _ToyListScreenState extends State<ToyListScreen> {
   bool _isLoadingLocation = false;
   bool _isLoading = false;
   int _selectedIndex = 0;
+  late Future<List<Toy>> _futureToys;
 
   @override
   void initState() {
     super.initState();
-    _loadToys();
+    _futureToys = fetchToys();
   }
 
   double _calculateDistance(
@@ -167,8 +168,8 @@ class _ToyListScreenState extends State<ToyListScreen> {
           matchesLocation =
               (toy.location ?? '').toLowerCase().contains(locationQuery);
         } else if (_currentPosition != null) {
-          if (toy.coordinates['coordinates'] != null &&
-              toy.coordinates['coordinates'].length == 2) {
+          if (toy.coordinates?['coordinates'] != null &&
+              (toy.coordinates?['coordinates'] as List).length == 2) {
             double distance = Geolocator.distanceBetween(
               _currentPosition!.latitude,
               _currentPosition!.longitude,
@@ -191,10 +192,10 @@ class _ToyListScreenState extends State<ToyListScreen> {
       // Trier par distance si on a une position
       if (_currentPosition != null) {
         filteredToys.sort((a, b) {
-          if (a.coordinates['coordinates'] == null) {
+          if (a.coordinates?['coordinates'] == null) {
             return 1;
           }
-          if (b.coordinates['coordinates'] == null) {
+          if (b.coordinates?['coordinates'] == null) {
             return -1;
           }
 
@@ -227,39 +228,34 @@ class _ToyListScreenState extends State<ToyListScreen> {
                 location.toLowerCase().contains(locationQuery));
   }
 
-  Future<void> _loadToys() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+  Future<List<Toy>> fetchToys() async {
     try {
       final response =
           await http.get(Uri.parse('http://10.0.2.2:5000/api/toys'));
       if (response.statusCode == 200) {
-        final List<dynamic> toysJson = json.decode(response.body);
-        setState(() {
-          toys = toysJson.map((json) => Toy.fromJson(json)).toList();
-          filteredToys = List.from(toys);
-        });
-        Provider.of<AuthProvider>(context, listen: false).setToys(toys);
+        final body = jsonDecode(response.body);
+        print("Body décodé (type ${body.runtimeType}) : $body");
+
+        if (body is List) {
+          for (var item in body) {
+            print("Type d'un item: ${item.runtimeType}");
+          }
+          return body.map((json) => Toy.fromJson(json)).toList();
+        } else {
+          throw Exception("Format de réponse inattendu: $body");
+        }
+      } else {
+        throw Exception('Erreur HTTP: ${response.statusCode}');
       }
     } catch (e) {
-      print('Erreur lors du chargement des jouets: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      print("Erreur lors de la récupération des jouets: $e");
+      throw e;
     }
   }
 
   bool isFavorite(Toy toy) {
-    return Provider.of<AuthProvider>(context, listen: true)
-            .user
-            ?.favoriteToys
-            ?.contains(toy.id) ??
-        false;
+    final auth = Provider.of<AuthProvider>(context, listen: true);
+    return auth.user?.favoriteToys?.any((favId) => favId == toy.id) ?? false;
   }
 
   void _onItemTapped(int index) {
@@ -274,7 +270,7 @@ class _ToyListScreenState extends State<ToyListScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(builder: (context) => AddToyScreen()),
-      ).then((_) => _loadToys());
+      ).then((_) => _futureToys = fetchToys());
     } else {
       setState(() {
         _selectedIndex = index;
@@ -291,14 +287,6 @@ class _ToyListScreenState extends State<ToyListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
-    final user = authProvider.user;
-
-    // Charger les jouets même si l'utilisateur n'est pas connecté
-    if (toys.isEmpty && !_isLoading) {
-      _loadToys();
-    }
-
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 42, 149, 156),
@@ -313,285 +301,299 @@ class _ToyListScreenState extends State<ToyListScreen> {
           ],
         ),
       ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : Column(
+      body: Column(
+        children: [
+          // Barre de recherche et filtre de localisation
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
               children: [
-                Container(
-                  padding: EdgeInsets.all(16),
-                  color: Theme.of(context).colorScheme.surface,
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 50,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.grey[300]!),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 3,
-                              child: TextField(
-                                controller: _searchController,
-                                textAlignVertical: TextAlignVertical.center,
-                                decoration: InputDecoration(
-                                  hintText: 'Rechercher un jouet',
-                                  hintStyle: TextStyle(color: Colors.grey[600]),
-                                  prefixIcon: Icon(Icons.search,
-                                      color: Colors.grey[600]),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                    borderSide: BorderSide(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurface,
-                                    ),
-                                  ),
-                                  filled: true,
-                                  fillColor: Theme.of(context)
-                                      .inputDecorationTheme
-                                      .fillColor,
-                                  contentPadding:
-                                      EdgeInsets.symmetric(horizontal: 16),
-                                ),
-                                onChanged: (value) => _filterToys(),
-                              ),
-                            ),
-                            VerticalDivider(
-                              color: Colors.grey[300],
-                              thickness: 1,
-                              width: 1,
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Stack(
-                                alignment: Alignment.centerRight,
-                                children: [
-                                  TextField(
-                                    controller: _locationController,
-                                    textAlign: TextAlign.center,
-                                    textAlignVertical: TextAlignVertical.center,
-                                    decoration: InputDecoration(
-                                      hintText: _isLoadingLocation
-                                          ? 'Localisation en cours...'
-                                          : 'Ville',
-                                      hintStyle:
-                                          TextStyle(color: Colors.grey[600]),
-                                      prefixIcon: IconButton(
-                                        icon: Icon(_currentPosition != null
-                                            ? Icons.my_location
-                                            : Icons.location_disabled),
-                                        onPressed: _getCurrentLocation,
-                                      ),
-                                      border: InputBorder.none,
-                                      contentPadding:
-                                          EdgeInsets.symmetric(horizontal: 8),
-                                    ),
-                                    onChanged: (value) => _filterToys(),
-                                  ),
-                                  if (_isLoadingLocation)
-                                    Positioned(
-                                      right: 8,
-                                      child: SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor:
-                                              AlwaysStoppedAnimation<Color>(
-                                            Color.fromARGB(255, 42, 149, 156),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      labelText: "Rechercher",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (text) => setState(() {}),
                   ),
                 ),
+                SizedBox(width: 8),
                 Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: _loadToys,
-                    child: GridView.builder(
-                      padding: EdgeInsets.all(8),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 2,
-                        mainAxisSpacing: 10,
-                        crossAxisSpacing: 10,
-                        mainAxisExtent: 320,
-                      ),
-                      itemCount: filteredToys.length,
-                      itemBuilder: (context, index) {
-                        final toy = filteredToys[index];
-                        return GestureDetector(
-                          onTap: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ToyDetailScreen(toy: toy),
-                              ),
-                            );
-                            if (result == true) {
-                              await _loadToys();
-                            }
-                          },
-                          child: SizedBox(
-                            height: 320,
-                            child: Card(
-                              clipBehavior: Clip.antiAlias,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Stack(
-                                    children: [
-                                      SizedBox(
-                                        height: 180,
-                                        width: double.infinity,
-                                        child: toy.imageUrl != null
-                                            ? Image.network(
-                                                toy.imageUrl!,
-                                                fit: BoxFit.cover,
-                                                errorBuilder: (context, error,
-                                                    stackTrace) {
-                                                  return Container(
-                                                    color: Colors.grey[200],
-                                                    child: Icon(
-                                                      Icons.error_outline,
-                                                      color: Colors.grey[400],
-                                                      size: 40,
-                                                    ),
-                                                  );
-                                                },
-                                              )
-                                            : Container(
-                                                color: Colors.grey[200],
-                                                child: Icon(
-                                                  Icons.image_not_supported,
-                                                  color: Colors.grey[400],
-                                                  size: 40,
-                                                ),
-                                              ),
-                                      ),
-                                      Positioned(
-                                        bottom: 8,
-                                        right: 8,
-                                        child: Container(
-                                          height: 36,
-                                          width: 36,
-                                          decoration: BoxDecoration(
-                                            color:
-                                                Colors.white.withOpacity(0.8),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: IconButton(
-                                            padding: EdgeInsets.zero,
-                                            icon: Icon(
-                                              isFavorite(toy)
-                                                  ? Icons.favorite
-                                                  : Icons.favorite_border,
-                                              color: Colors.red,
-                                            ),
-                                            onPressed: () async {
-                                              final auth =
-                                                  Provider.of<AuthProvider>(
-                                                      context,
-                                                      listen: false);
-                                              if (!auth.isAuthenticated) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          'Connectez-vous pour gérer les favoris')),
-                                                );
-                                                return;
-                                              }
-
-                                              try {
-                                                await auth
-                                                    .toggleFavorite(toy.id);
-                                              } catch (e) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  SnackBar(
-                                                      content: Text(
-                                                          'Erreur: ${e.toString()}')),
-                                                );
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Expanded(
-                                    child: Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            toy.name ?? 'Nom inconnu',
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          SizedBox(height: 4),
-                                          Row(
-                                            children: [
-                                              Icon(
-                                                Icons.location_on,
-                                                size: 16,
-                                                color: Colors.grey[600],
-                                              ),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                toy.location ??
-                                                    'Location non disponible',
-                                                style: TextStyle(
-                                                  fontSize: 12,
-                                                  color: Colors.grey[600],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          SizedBox(height: 4),
-                                          Expanded(
-                                            child: Text(
-                                              toy.description ??
-                                                  'Description non disponible',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey[600],
-                                              ),
-                                              maxLines: 3,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
+                  child: TextField(
+                    controller: _locationController,
+                    decoration: InputDecoration(
+                      labelText: "Localisation",
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_on),
                     ),
+                    onChanged: (text) => setState(() {}),
                   ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.my_location),
+                  onPressed: _getCurrentLocation,
                 ),
               ],
             ),
+          ),
+          // La liste ou grille des jouets
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () async {
+                final toys = await fetchToys();
+                setState(() {
+                  _futureToys = Future.value(toys);
+                });
+              },
+              child: FutureBuilder<List<Toy>>(
+                future: _futureToys,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  } else if (snapshot.hasError) {
+                    return Center(child: Text("Erreur: ${snapshot.error}"));
+                  } else if (!snapshot.hasData ||
+                      (snapshot.data?.isEmpty ?? true)) {
+                    return const Center(child: Text("Aucun jouet trouvé."));
+                  } else {
+                    final toys = snapshot.data!;
+                    // Appliquer le filtre dès qu'on reçoit les données
+                    final localFilteredToys = _getFilteredToys(toys);
+                    return Expanded(
+                      child: GridView.builder(
+                        padding: EdgeInsets.all(8),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          mainAxisSpacing: 10,
+                          crossAxisSpacing: 10,
+                          mainAxisExtent: 320,
+                        ),
+                        itemCount: localFilteredToys.length,
+                        itemBuilder: (context, index) {
+                          final toy = localFilteredToys[index];
+                          return GestureDetector(
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ToyDetailScreen(toy: toy),
+                                ),
+                              );
+                              if (result == true) {
+                                setState(() {
+                                  _futureToys = fetchToys();
+                                });
+                              }
+                            },
+                            child: SizedBox(
+                              height: 320,
+                              child: Card(
+                                clipBehavior: Clip.antiAlias,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Stack(
+                                      children: [
+                                        SizedBox(
+                                          height: 180,
+                                          width: double.infinity,
+                                          child: toy.imageUrl != null
+                                              ? Image.network(
+                                                  toy.imageUrl!,
+                                                  fit: BoxFit.cover,
+                                                  errorBuilder: (context, error,
+                                                      stackTrace) {
+                                                    return Container(
+                                                      color: Colors.grey[200],
+                                                      child: Icon(
+                                                        Icons.error_outline,
+                                                        color: Colors.grey[400],
+                                                        size: 40,
+                                                      ),
+                                                    );
+                                                  },
+                                                )
+                                              : Container(
+                                                  color: Colors.grey[200],
+                                                  child: Icon(
+                                                    Icons.image_not_supported,
+                                                    color: Colors.grey[400],
+                                                    size: 40,
+                                                  ),
+                                                ),
+                                        ),
+                                        Positioned(
+                                          bottom: 8,
+                                          right: 8,
+                                          child: Container(
+                                            height: 36,
+                                            width: 36,
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  Colors.white.withOpacity(0.8),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              icon: Icon(
+                                                isFavorite(toy)
+                                                    ? Icons.favorite
+                                                    : Icons.favorite_border,
+                                                color: Colors.red,
+                                              ),
+                                              onPressed: () async {
+                                                final auth =
+                                                    Provider.of<AuthProvider>(
+                                                        context,
+                                                        listen: false);
+                                                if (!auth.isAuthenticated) {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                        content: Text(
+                                                            'Connectez-vous pour gérer les favoris')),
+                                                  );
+                                                  return;
+                                                }
+
+                                                try {
+                                                  await auth
+                                                      .toggleFavorite(toy.id);
+                                                } catch (e) {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                        content: Text(
+                                                            'Erreur: ${e.toString()}')),
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(12),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              toy.name ?? 'Nom inconnu',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                              maxLines: 2,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.location_on,
+                                                  size: 16,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  toy.location ??
+                                                      'Location non disponible',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            SizedBox(height: 4),
+                                            Expanded(
+                                              child: Text(
+                                                toy.description ??
+                                                    'Description non disponible',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey[600],
+                                                ),
+                                                maxLines: 3,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  }
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
     );
+  }
+
+  List<Toy> _getFilteredToys(List<Toy> toyList) {
+    String searchQuery = _searchController.text.toLowerCase();
+    String locationQuery = _locationController.text.toLowerCase();
+
+    List<Toy> localFiltered = toyList.where((toy) {
+      bool matchesSearch = toy.name.toLowerCase().contains(searchQuery) ||
+          toy.description.toLowerCase().contains(searchQuery);
+      bool matchesLocation = true;
+
+      if (locationQuery.isNotEmpty) {
+        matchesLocation = toy.location.toLowerCase().contains(locationQuery);
+      } else if (_currentPosition != null) {
+        if (toy.coordinates?['coordinates'] != null &&
+            (toy.coordinates?['coordinates'] as List).length == 2) {
+          double distance = Geolocator.distanceBetween(
+                  _currentPosition!.latitude,
+                  _currentPosition!.longitude,
+                  toy.latitude,
+                  toy.longitude) /
+              1000; // conversion en km
+          matchesLocation = distance <= 20; // 20 km maximum
+        } else {
+          matchesLocation = false;
+        }
+      }
+      return matchesSearch && matchesLocation;
+    }).toList();
+
+    // Tri par distance si position disponible
+    if (_currentPosition != null) {
+      localFiltered.sort((a, b) {
+        if (a.coordinates?['coordinates'] == null) return 1;
+        if (b.coordinates?['coordinates'] == null) return -1;
+        double distanceA = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          a.latitude,
+          a.longitude,
+        );
+        double distanceB = Geolocator.distanceBetween(
+          _currentPosition!.latitude,
+          _currentPosition!.longitude,
+          b.latitude,
+          b.longitude,
+        );
+        return distanceA.compareTo(distanceB);
+      });
+    }
+    return localFiltered;
   }
 }

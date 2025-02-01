@@ -20,6 +20,14 @@ const toySchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    latitude: {
+      type: Number,
+      required: true,
+    },
+    longitude: {
+      type: Number,
+      required: true,
+    },
     coordinates: {
       type: {
         type: String,
@@ -34,7 +42,7 @@ const toySchema = new mongoose.Schema(
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false,
+      required: true,
     },
   },
   {

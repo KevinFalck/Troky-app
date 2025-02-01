@@ -73,6 +73,15 @@ class _AddToyScreenState extends State<AddToyScreen> {
   }
 
   Future<void> _submitForm() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text('Vous devez être connecté pour ajouter un jouet')),
+      );
+      return;
+    }
+
     if (_formKey.currentState!.validate()) {
       if (_imageFile == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,18 +104,22 @@ class _AddToyScreenState extends State<AddToyScreen> {
 
         final String imageUrl = await _uploadImage(_imageFile!);
 
+        final toyData = {
+          'name': _nameController.text.trim(),
+          'description': _descriptionController.text.trim(),
+          'imageUrl': imageUrl,
+          'location': _locationController.text.trim(),
+          'latitude': cityCoordinates.$1,
+          'longitude': cityCoordinates.$2,
+          'owner': authProvider.user!.id,
+        };
+
+        print('Données envoyées pour le jouet : $toyData');
+
         final response = await http.post(
           Uri.parse('http://10.0.2.2:5000/api/toys'),
           headers: {'Content-Type': 'application/json'},
-          body: json.encode({
-            'name': _nameController.text,
-            'description': _descriptionController.text,
-            'imageUrl': imageUrl,
-            'location': _locationController.text.trim(),
-            'latitude': cityCoordinates.$1,
-            'longitude': cityCoordinates.$2,
-            'owner': null
-          }),
+          body: json.encode(toyData),
         );
 
         if (response.statusCode == 201) {
