@@ -1,6 +1,8 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'package:http/http.dart' as http;
 import '../models/user.dart';
 import 'package:provider/provider.dart';
 import '../providers/theme_provider.dart';
@@ -16,7 +18,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final ImagePicker _picker = ImagePicker();
-  File? _imageFile;
+  XFile? _imageFile;
 
   @override
   void initState() {
@@ -34,15 +36,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (pickedFile != null) {
         setState(() {
-          _imageFile = File(pickedFile.path);
+          _imageFile = pickedFile;
         });
-        // TODO: Uploader l'image vers le serveur
-        _uploadImage(_imageFile!);
+        await _uploadAndUpdateProfile(pickedFile);
       }
     } catch (e) {
       print('Erreur lors de la sélection de l\'image: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la sélection de l\'image')),
+        const SnackBar(content: Text('Erreur lors de la sélection de l\'image')),
       );
     }
   }
@@ -67,9 +68,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                   if (image != null) {
                     setState(() {
-                      _imageFile = File(image.path);
+                      _imageFile = image;
                     });
-                    _uploadImage(_imageFile!);
+                    _uploadAndUpdateProfile(image);
                   }
                 },
               ),
@@ -86,9 +87,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
                   if (image != null) {
                     setState(() {
-                      _imageFile = File(image.path);
+                      _imageFile = image;
                     });
-                    _uploadImage(_imageFile!);
+                    _uploadAndUpdateProfile(image);
                   }
                 },
               ),
@@ -99,17 +100,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _uploadImage(File imageFile) async {
+  Future<String> _uploadImage(XFile imageFile) async {
     try {
-      // TODO: Implémenter l'upload vers le serveur
-      // Exemple de feedback utilisateur
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Photo de profil mise à jour')),
+        const SnackBar(content: Text('Début de l\'upload...')),
       );
-    } catch (e) {
-      print('Erreur lors de l\'upload de l\'image: $e');
+      // Requête multipart vers l'endpoint /api/upload
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('http://10.0.2.2:5000/api/upload'),
+      );
+      var stream = http.ByteStream(imageFile.openRead());
+      var length = await imageFile.length();
+      var multipartFile = http.MultipartFile(
+        'image',
+        stream,
+        length,
+        filename: imageFile.name,
+      );
+      request.files.add(multipartFile);
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la mise à jour de la photo')),
+        const SnackBar(content: Text('Envoi de l\'image vers S3...')),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        return responseData['imageUrl'];
+      } else {
+        throw Exception('Échec de l\'upload: ${response.statusCode}');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur lors de l\'upload de l\'image: $e')),
+      );
+      rethrow;
+    }
+  }
+
+  Future<void> _uploadAndUpdateProfile(XFile imageFile) async {
+    try {
+      // 1. Upload vers S3 (même logique que pour AddToyScreen)
+      final String imageUrl = await _uploadImage(imageFile);
+
+      // 2. Mise à jour du profil via PATCH /auth/profile/image
+      final currentUser = Provider.of<AuthProvider>(context, listen: false).user;
+      final updateUri = Uri.parse('http://10.0.2.2:5000/auth/profile/image');
+      final updateResponse = await http.patch(
+        updateUri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'profileImage': imageUrl,
+          'userId': currentUser?.id,
+        }),
+      );
+      if (updateResponse.statusCode == 200) {
+        final updateData = json.decode(updateResponse.body);
+        Provider.of<AuthProvider>(context, listen: false)
+            .updateUser(User.fromJson(updateData));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Photo de profil mise à jour')),
+        );
+      } else {
+        throw Exception('Erreur lors de la mise à jour de la photo de profil');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur: ${e.toString()}')),
       );
     }
   }
@@ -172,7 +232,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               radius: 50,
                               backgroundColor: Colors.grey[200],
                               backgroundImage: _imageFile != null
-                                  ? FileImage(_imageFile!)
+                                  ? FileImage(File(_imageFile!.path))
                                   : (user.profileImageUrl != null
                                       ? NetworkImage(user.profileImageUrl!)
                                       : null),
@@ -214,28 +274,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         // Note
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            ...List.generate(5, (index) {
-                              return Icon(
-                                index < (user.rating ?? 0)
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: Colors.amber,
-                                size: 24,
-                              );
-                            }),
-                            SizedBox(width: 8),
-                            Text(
-                              user.rating.toString(),
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Theme.of(context).colorScheme.onSurface,
-                              ),
-                            ),
-                          ],
+                        ReviewIndicator(
+                          rating: user.rating,
+                          reviewsCount: user.reviewsCount,
                         ),
                       ],
                     ),
@@ -273,11 +314,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           icon: Icons.swap_horiz,
                           title: 'Échanges réalisés',
                           value: user.completedTransactions?.toString() ?? '0',
-                        ),
-                        _buildStatItem(
-                          icon: Icons.calendar_today,
-                          title: 'Membre depuis',
-                          value: user.memberSince ?? 'Date inconnue',
                         ),
                       ],
                     ),
@@ -323,12 +359,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // Bouton de thème en bas
                         _buildActionButton(
                           icon: Icons.brightness_6,
-                          title: Theme.of(context).brightness == Brightness.dark
-                              ? 'Passer en mode clair'
-                              : 'Passer en mode sombre',
+                          title:
+                              Provider.of<ThemeProvider>(context).themeMode ==
+                                      ThemeMode.dark
+                                  ? 'Passer en mode clair'
+                                  : 'Passer en mode sombre',
                           onTap: () {
-                            Theme.of(context)
-                                .copyWith(brightness: Brightness.dark);
+                            final themeProvider = Provider.of<ThemeProvider>(
+                                context,
+                                listen: false);
+                            if (themeProvider.themeMode == ThemeMode.dark) {
+                              themeProvider.toggleTheme(ThemeMode.light);
+                            } else {
+                              themeProvider.toggleTheme(ThemeMode.dark);
+                            }
                           },
                         ),
                       ],
@@ -428,6 +472,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ],
         );
       },
+    );
+  }
+}
+
+// Widget dédié à l'affichage de la note sous forme d'étoiles avec le nombre d'avis
+class ReviewIndicator extends StatelessWidget {
+  final double? rating;
+  final int? reviewsCount;
+
+  const ReviewIndicator(
+      {Key? key, required this.rating, required this.reviewsCount})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    // Si aucun avis n'est disponible, on affiche "aucun avis"
+    if (reviewsCount == null || reviewsCount == 0 || rating == null) {
+      return const Text(
+        'aucun avis',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      );
+    }
+
+    // Calcul du nombre d'étoiles pleines et détection éventuelle d'une demi-étoile
+    int fullStars = rating!.floor();
+    bool hasHalfStar = (rating! - fullStars) >= 0.5;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        ...List.generate(5, (index) {
+          if (index < fullStars) {
+            return const Icon(Icons.star, color: Colors.amber, size: 24);
+          } else if (index == fullStars && hasHalfStar) {
+            return const Icon(Icons.star_half, color: Colors.amber, size: 24);
+          } else {
+            return const Icon(Icons.star_border, color: Colors.amber, size: 24);
+          }
+        }),
+        const SizedBox(width: 8),
+        Text(
+          '${rating!.toStringAsFixed(2).replaceAll('.', ',')}/5 (${reviewsCount!} avis)',
+          style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).colorScheme.onSurface),
+        ),
+      ],
     );
   }
 }

@@ -4,11 +4,12 @@ class User {
   final String? email;
   final String? profileImageUrl;
   final double? rating;
+  final int? reviewsCount;
   final int? responseTimeMinutes;
   final int? totalListings;
   final int? completedTransactions;
   final String? memberSince;
-  List<String> favoriteToys = [];
+  List<String> favoriteToys;
 
   User({
     required this.id,
@@ -16,6 +17,7 @@ class User {
     this.email = '',
     this.profileImageUrl,
     this.rating,
+    this.reviewsCount,
     this.responseTimeMinutes,
     this.totalListings,
     this.completedTransactions,
@@ -29,29 +31,31 @@ class User {
     }
     final map = json as Map<String, dynamic>;
     return User(
-      id: map['_id']?.toString() ?? '',
-      username: map['username'] ?? 'Utilisateur',
+      id: map['_id']?.toString() ?? map['userId']?.toString() ?? '',
+      username: map['name'] ?? map['username'] ?? 'Utilisateur',
       email: map['email'] ?? '',
-      profileImageUrl: map['profileImageUrl'],
-      rating: map['rating']?.toDouble(),
+      profileImageUrl: map['profileImage'] ?? map['profileImageUrl'],
+      rating: map['rating'] != null ? (map['rating'] as num).toDouble() : null,
+      reviewsCount:
+          map['reviewsCount'] != null ? map['reviewsCount'] as int : 0,
       responseTimeMinutes: map['responseTimeMinutes'],
       totalListings: map['totalListings'],
       completedTransactions: map['completedTransactions'],
       memberSince: map['memberSince'],
-      favoriteToys: (map['favoriteToys'] as List<dynamic>?)
-              ?.map<String>((item) => item['\$oid']?.toString() ?? '')
-              .toList() ??
-          [],
+      favoriteToys: map['favoriteToys'] != null
+          ? List<String>.from(map['favoriteToys'])
+          : [],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      'id': id,
-      'username': username,
+      '_id': id,
+      'name': username,
       'email': email,
-      'profileImageUrl': profileImageUrl,
+      'profileImage': profileImageUrl,
       'rating': rating,
+      'reviewsCount': reviewsCount,
       'responseTimeMinutes': responseTimeMinutes,
       'totalListings': totalListings,
       'completedTransactions': completedTransactions,
@@ -67,6 +71,7 @@ class User {
       email: email,
       profileImageUrl: profileImageUrl,
       rating: rating,
+      reviewsCount: reviewsCount,
       responseTimeMinutes: responseTimeMinutes,
       totalListings: totalListings,
       completedTransactions: completedTransactions,

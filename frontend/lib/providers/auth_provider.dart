@@ -37,9 +37,8 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  void login(String userId) {
+  Future<void> login(String userId) async {
     _isAuthenticated = true;
-    // Charger les informations de l'utilisateur ici
     notifyListeners();
   }
 
@@ -84,21 +83,12 @@ class AuthProvider with ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final user = User(
-          id: data['userId'],
-          email: data['email'] ?? googleUser.email ?? '',
-          username:
-              data['name'] ?? googleUser.displayName ?? 'Utilisateur Google',
-        );
+        final user = User.fromJson(data);
         updateUser(user);
         _isAuthenticated = true;
         notifyListeners();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Connecté avec ${googleUser.email}')),
-        );
-
-        _triggerNavigation();
+        _triggerNavigation(context);
       } else {
         print('Erreur HTTP : ${response.statusCode}');
         throw Exception('Erreur lors de la connexion Google');
@@ -109,8 +99,8 @@ class AuthProvider with ChangeNotifier {
     }
   }
 
-  void _triggerNavigation() {
-    _navigationService.navigateTo(AppRoutes.home);
+  void _triggerNavigation(BuildContext context) {
+    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
   }
 
   void _showErrorSnackbar(BuildContext context, dynamic error) {
@@ -139,5 +129,10 @@ class AuthProvider with ChangeNotifier {
     } catch (e) {
       debugPrint('Erreur favori: $e');
     }
+  }
+
+  Future<User?> signInWithGoogle(BuildContext context) async {
+    await handleGoogleSignIn(context);
+    return _user;
   }
 }

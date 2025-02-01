@@ -10,6 +10,7 @@ import 'add_toy_screen.dart';
 import 'messages_screen.dart';
 import 'profile_screen.dart';
 import '../config/app_routes.dart';
+import '../widgets/custom_app_bar.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -62,20 +63,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
             .pushReplacementNamed('/'); // Redirige vers la page d'accueil
         break;
       case 1:
-        Navigator.of(context).pushReplacementNamed(
-            '/favorites'); // Redirige vers la page des favoris
+        Navigator.of(context).pushReplacementNamed('/favorites'); // Favoris
         break;
       case 2:
-        Navigator.of(context).pushReplacementNamed(
-            '/add-toy'); // Redirige vers la page d'ajout de jouet
+        Navigator.of(context).pushReplacementNamed('/add-toy'); // Publier
         break;
       case 3:
-        Navigator.of(context).pushReplacementNamed(
-            '/messages'); // Redirige vers la page des messages
+        Navigator.of(context).pushReplacementNamed('/messages'); // Messages
         break;
       case 4:
-        Navigator.of(context).pushReplacementNamed(
-            '/profile'); // Redirige vers la page de profil
+        Navigator.of(context).pushReplacementNamed('/profile'); // Profil
         break;
     }
   }
@@ -114,7 +111,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Inscription')),
+      appBar: CustomAppBar(
+        title: Text('Inscription'),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -139,15 +138,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
               },
               child: Text('Déjà un compte ? Connectez-vous'),
             ),
-            // Ajout du bouton Google
             ElevatedButton.icon(
-              onPressed: () => Provider.of<AuthProvider>(context, listen: false)
-                  .handleGoogleSignIn(context),
-              icon: Image.asset('assets/images/google_logo.webp', width: 24),
-              label: Text('Continuer avec Google'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
-                foregroundColor: Colors.black,
+                side: BorderSide(color: Colors.grey),
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onPressed: () async {
+                try {
+                  final user =
+                      await Provider.of<AuthProvider>(context, listen: false)
+                          .signInWithGoogle(context);
+                  if (user != null && (user.email?.isNotEmpty ?? false)) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Connecté avec ${user.email}')),
+                    );
+                    Navigator.of(context).pushReplacementNamed(AppRoutes.home);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                          content: Text(
+                              'Erreur lors du login : utilisateur inconnu')),
+                    );
+                  }
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content:
+                            Text('Erreur lors du login : ${e.toString()}')),
+                  );
+                }
+              },
+              icon: Image.asset(
+                'assets/images/google_logo.webp',
+                height: 24.0,
+              ),
+              label: Text(
+                'Continuer avec Google',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
