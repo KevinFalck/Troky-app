@@ -31,6 +31,14 @@ const userSchema = new mongoose.Schema({
   // Système d'avis : moyenne et nombre total d'avis
   rating: { type: Number, default: null }, // null signifie "aucun avis"
   reviewsCount: { type: Number, default: 0 },
+  totalListings: {
+    type: Number,
+    default: 0,
+    validate: {
+      validator: (v) => Number.isInteger(v ?? 0),
+      message: "Doit être un entier",
+    },
+  },
 });
 
 // Ajouter une méthode pour gérer les favoris
@@ -52,6 +60,12 @@ userSchema.methods.toggleFavorite = async function (toyId) {
   }
   return this.save();
 };
+
+userSchema.pre("findOneAndUpdate", function (next) {
+  console.log("🔥 Middleware activé pour", this.getFilter());
+  console.log("🔧 Update payload:", this.getUpdate());
+  next();
+});
 
 // Création du modèle utilisateur
 const User = mongoose.model("User", userSchema);

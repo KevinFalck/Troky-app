@@ -164,4 +164,19 @@ class AuthProvider with ChangeNotifier {
     print("ID utilisateur assigné : ${_user?.id}");
     notifyListeners();
   }
+
+  Future<void> refreshUserData() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:5000/auth/profile'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+
+      if (response.statusCode == 200) {
+        updateUserFromJson(jsonDecode(response.body));
+      }
+    } catch (e) {
+      debugPrint('Erreur rafraîchissement utilisateur: $e');
+    }
+  }
 }

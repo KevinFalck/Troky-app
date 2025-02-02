@@ -103,8 +103,9 @@ router.post("/google", async (req, res) => {
           name: payload.name,
           profileImage: payload.picture,
           email: payload.email,
-          rating: null, // Aucun avis par défaut
-          reviewsCount: 0, // Aucun avis par défaut
+          rating: null,
+          reviewsCount: 0,
+          totalListings: 0,
         },
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
@@ -151,6 +152,7 @@ router.get("/profile", jwtAuth, async (req, res) => {
       rating: user.rating,
       reviewsCount: user.reviewsCount,
       favoriteToys: user.favoriteToys,
+      totalListings: user.totalListings,
     });
   } catch (error) {
     console.error("Erreur lors de la récupération du profil :", error);

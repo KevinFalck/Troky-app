@@ -255,7 +255,7 @@ class _ToyListScreenState extends State<ToyListScreen> {
 
   bool isFavorite(Toy toy) {
     final auth = Provider.of<AuthProvider>(context, listen: true);
-    return auth.user?.favoriteToys?.any((favId) => favId == toy.id) ?? false;
+    return auth.user?.favoriteToys?.contains(toy.id) ?? false;
   }
 
   void _onItemTapped(int index) {
@@ -287,6 +287,15 @@ class _ToyListScreenState extends State<ToyListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Détection du mode sombre
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.grey[800] : Colors.grey[200];
+    final borderColor =
+        isDark ? Colors.blueGrey.shade600 : Colors.blueGrey.shade200;
+    final iconColor = isDark ? Colors.white70 : Colors.grey;
+    final hintStyle =
+        TextStyle(fontSize: 14, color: isDark ? Colors.white70 : Colors.grey);
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 42, 149, 156),
@@ -297,43 +306,144 @@ class _ToyListScreenState extends State<ToyListScreen> {
               height: 40,
               fit: BoxFit.contain,
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
           ],
         ),
       ),
       body: Column(
         children: [
-          // Barre de recherche et filtre de localisation
+          // Barre de recherche et localisation avec support du mode sombre
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
+                // Barre "Rechercher"
                 Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      labelText: "Rechercher",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.search),
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: borderColor, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: iconColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    onChanged: (text) => setState(() {}),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.search, color: iconColor, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            style: const TextStyle(fontSize: 12),
+                            // On force la transparence de la zone de saisie afin d'hériter du bgColor du container
+                            decoration: InputDecoration(
+                              hintText: "Rechercher",
+                              hintStyle: hintStyle,
+                              border: InputBorder.none,
+                              isDense: true,
+                              filled: true,
+                              fillColor: Colors.transparent,
+                            ),
+                            onChanged: (text) => setState(() {}),
+                          ),
+                        ),
+                        _searchController.text.isNotEmpty
+                            ? GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _searchController.clear();
+                                  });
+                                },
+                                child: Icon(Icons.clear,
+                                    color: iconColor, size: 16),
+                              )
+                            : const SizedBox(),
+                      ],
+                    ),
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 7),
+                // Barre "Localisation"
                 Expanded(
-                  child: TextField(
-                    controller: _locationController,
-                    decoration: InputDecoration(
-                      labelText: "Localisation",
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.location_on),
+                  child: Container(
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: borderColor, width: 2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: iconColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
                     ),
-                    onChanged: (text) => setState(() {}),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.location_on, color: iconColor, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: TextField(
+                            controller: _locationController,
+                            style: const TextStyle(fontSize: 12),
+                            decoration: InputDecoration(
+                              hintText: "Localisation",
+                              hintStyle: hintStyle,
+                              border: InputBorder.none,
+                              isDense: true,
+                              filled: true,
+                              // Force la transparence pour que la couleur du container soit respectée
+                              fillColor: Colors.transparent,
+                            ),
+                            onChanged: (text) => setState(() {}),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.my_location),
-                  onPressed: _getCurrentLocation,
+                const SizedBox(width: 7),
+                // Bouton de géolocalisation positionné à droite, à l'extérieur de la barre "Localisation"
+                Container(
+                  height: 40,
+                  width: 40,
+                  decoration: BoxDecoration(
+                    color: const Color.fromARGB(255, 42, 149, 156),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: iconColor.withOpacity(0.3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: _isLoadingLocation
+                      ? const Padding(
+                          padding: EdgeInsets.all(6),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(Icons.my_location,
+                              color: Colors.white, size: 16),
+                          onPressed: _getCurrentLocation,
+                        ),
                 ),
               ],
             ),
@@ -458,7 +568,6 @@ class _ToyListScreenState extends State<ToyListScreen> {
                                                   );
                                                   return;
                                                 }
-
                                                 try {
                                                   await auth
                                                       .toggleFavorite(toy.id);
