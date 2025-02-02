@@ -44,8 +44,8 @@ router.post("/", async (req, res) => {
       owner,
     });
 
-    await toy.save();
-    res.status(201).json(toy);
+    const savedToy = await toy.save();
+    res.status(201).json(savedToy);
   } catch (error) {
     res.status(500).json({
       message: "Erreur lors de la création du jouet",

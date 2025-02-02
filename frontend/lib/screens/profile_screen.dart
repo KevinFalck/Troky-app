@@ -23,6 +23,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<AuthProvider>(context, listen: false).refreshUserData();
+    });
   }
 
   Future<void> _pickImage() async {
@@ -324,7 +327,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _buildStatItem(
                           icon: Icons.list_alt,
                           title: 'Annonces publiées',
-                          value: user.totalListings?.toString() ?? '0',
+                          value: user.totalListings != null 
+                              ? '${user.totalListings}' 
+                              : '${_calculateUserListings()}',
                         ),
                         _buildStatItem(
                           icon: Icons.swap_horiz,
@@ -490,6 +495,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
+  }
+
+  int _calculateUserListings() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return authProvider.allToys.where((toy) => toy.owner == authProvider.user?.id).length;
   }
 }
 

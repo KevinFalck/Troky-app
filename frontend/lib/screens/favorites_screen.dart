@@ -31,33 +31,37 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   Future<void> _loadFavoritesFromProvider() async {
     final auth = Provider.of<AuthProvider>(context, listen: true);
     final favoriteIds = auth.user?.favoriteToys ?? [];
-    final toys = Provider.of<AuthProvider>(context).allToys;
-    var favoriteToys = toys.where((t) => favoriteIds.contains(t.id)).toList();
+    final toys = Provider.of<AuthProvider>(context, listen: false).allToys;
+    var localFavorites = toys.where((t) => favoriteIds.contains(t.id)).toList();
 
-    if (favoriteToys.isEmpty) {
-      if (mounted) setState(() => favoriteToys = []);
-      return;
-    }
+    if (localFavorites.isEmpty) {
+      try {
+        final response = await http.post(
+          Uri.parse('http://10.0.2.2:5000/api/toys/by-ids'),
+          body: jsonEncode({'ids': favoriteIds}),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ${auth.token}',
+          },
+        );
 
-    try {
-      final response = await http.post(
-        Uri.parse('http://10.0.2.2:5000/api/toys/by-ids'),
-        body: jsonEncode({'ids': favoriteIds}),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200 && mounted) {
-        setState(() {
-          favoriteToys = (jsonDecode(response.body) as List)
-              .map<Toy>((item) => Toy.fromJson(item))
-              .toList();
-        });
+        if (response.statusCode == 200 && mounted) {
+          setState(() {
+            favoriteToys = (jsonDecode(response.body) as List)
+                .map<Toy>((item) => Toy.fromJson(item))
+                .toList();
+          });
+          return;
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur: ${e.toString()}')),
+          );
+        }
       }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
     }
+    if (mounted) setState(() => favoriteToys = localFavorites);
   }
 
   @override
@@ -65,7 +69,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final favoriteIds = auth.user?.favoriteToys ?? [];
     final toys = Provider.of<AuthProvider>(context).allToys;
-    final favoriteToys = toys.where((t) => favoriteIds.contains(t.id)).toList();
+    final localFavoriteToys =
+        toys.where((t) => favoriteIds.contains(t.id)).toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -77,19 +82,19 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               height: 40,
               fit: BoxFit.contain,
             ),
-            SizedBox(width: 8),
-            Text(
+            const SizedBox(width: 8),
+            const Text(
               'Mes Favoris',
               style: TextStyle(color: Colors.white),
             ),
           ],
         ),
       ),
-      body: favoriteToys.isEmpty
+      body: (favoriteToys.isEmpty && localFavoriteToys.isEmpty)
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+                children: const [
                   Icon(
                     Icons.favorite_border,
                     size: 64,
@@ -107,22 +112,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               ),
             )
           : GridView.builder(
-              padding: EdgeInsets.all(8),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              padding: const EdgeInsets.all(8),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 mainAxisExtent: 320,
               ),
-              itemCount: favoriteToys.length,
+              itemCount: (favoriteToys.isNotEmpty
+                  ? favoriteToys.length
+                  : localFavoriteToys.length),
               itemBuilder: (context, index) {
+                final toy = favoriteToys.isNotEmpty
+                    ? favoriteToys[index]
+                    : localFavoriteToys[index];
                 return GestureDetector(
                   onTap: () async {
                     final result = await Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) =>
-                            ToyDetailScreen(toy: favoriteToys[index]),
+                        builder: (context) => ToyDetailScreen(toy: toy),
                       ),
                     );
                     if (result == true) {
@@ -141,13 +150,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                               SizedBox(
                                 height: 180,
                                 width: double.infinity,
-                                child:
-                                    (favoriteToys[index].imageUrl?.isNotEmpty ??
-                                            false)
-                                        ? Image.network(
-                                            favoriteToys[index].imageUrl!,
-                                            fit: BoxFit.cover)
-                                        : Placeholder(),
+                                child: (toy.imageUrl?.isNotEmpty ?? false)
+                                    ? Image.network(
+                                        toy.imageUrl!,
+                                        fit: BoxFit.cover,
+                                      )
+                                    : const Placeholder(),
                               ),
                               Positioned(
                                 bottom: 8,
@@ -162,8 +170,8 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                   child: IconButton(
                                     padding: EdgeInsets.zero,
                                     icon: Icon(
-                                      auth.user?.favoriteToys?.contains(
-                                                  favoriteToys[index].id) ??
+                                      auth.user?.favoriteToys
+                                                  ?.contains(toy.id) ??
                                               false
                                           ? Icons.favorite
                                           : Icons.favorite_border,
@@ -172,7 +180,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                                     onPressed: () => Provider.of<AuthProvider>(
                                             context,
                                             listen: false)
-                                        .toggleFavorite(favoriteToys[index].id),
+                                        .toggleFavorite(toy.id),
                                   ),
                                 ),
                               ),
@@ -180,24 +188,23 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                           ),
                           Expanded(
                             child: Padding(
-                              padding: EdgeInsets.all(12),
+                              padding: const EdgeInsets.all(12),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    favoriteToys[index].name ??
-                                        'Nom non disponible',
-                                    style: TextStyle(
+                                    toy.name ?? 'Nom non disponible',
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  SizedBox(height: 6),
+                                  const SizedBox(height: 6),
                                   Expanded(
                                     child: Text(
-                                      favoriteToys[index].description ??
+                                      toy.description ??
                                           'Description non disponible',
                                       style: TextStyle(
                                         fontSize: 14,

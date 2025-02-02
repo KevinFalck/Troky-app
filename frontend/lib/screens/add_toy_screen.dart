@@ -125,6 +125,12 @@ class _AddToyScreenState extends State<AddToyScreen> {
         if (response.statusCode == 201) {
           if (!mounted) return;
 
+          final auth = Provider.of<AuthProvider>(context, listen: false);
+          await auth.refreshUserData();
+
+          // Attendre la propagation des données
+          await Future.delayed(Duration(milliseconds: 500));
+
           Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
         } else {
           if (!mounted) return;
