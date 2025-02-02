@@ -160,7 +160,16 @@ class AuthProvider with ChangeNotifier {
   void updateUserFromJson(Map<String, dynamic> json) {
     final userData = json.containsKey('user') ? json['user'] : json;
     print("Données utilisateur reçues : $userData");
-    _user = User.fromJson(userData);
+    _user = User(
+      id: userData['userId'],
+      email: userData['email'],
+      name: userData['name'],
+      profileImage: userData['profileImage'],
+      rating: userData['rating']?.toDouble(),
+      reviewsCount: userData['reviewsCount']?.toInt() ?? 0,
+      totalListings: userData['totalListings']?.toInt() ?? 0,
+      favoriteToys: List<String>.from(userData['favoriteToys'] ?? []),
+    );
     print("ID utilisateur assigné : ${_user?.id}");
     notifyListeners();
   }
