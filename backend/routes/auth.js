@@ -122,13 +122,14 @@ router.post("/google", async (req, res) => {
     }
 
     res.status(200).json({
-      token, // On renvoie le token ici
+      token,
       userId: user._id.toString(),
       email: user.email,
       name: user.name,
       profileImage: user.profileImage,
-      rating: user.rating,
-      reviewsCount: user.reviewsCount,
+      rating: user.rating !== null ? Number(user.rating) : null,
+      reviewsCount: Number(user.reviewsCount),
+      totalListings: Number(user.totalListings),
       favoriteToys: user.favoriteToys,
     });
   } catch (error) {

@@ -29,7 +29,16 @@ const userSchema = new mongoose.Schema({
   },
   favoriteToys: [{ type: mongoose.Schema.Types.ObjectId, ref: "Toy" }],
   // Système d'avis : moyenne et nombre total d'avis
-  rating: { type: Number, default: null }, // null signifie "aucun avis"
+  rating: {
+    type: Number,
+    default: null,
+    validate: {
+      validator: function (v) {
+        return v === null || (typeof v === "number" && v >= 0 && v <= 5);
+      },
+      message: "La note doit être entre 0 et 5 (entier ou décimal)",
+    },
+  },
   reviewsCount: { type: Number, default: 0 },
   totalListings: {
     type: Number,

@@ -506,7 +506,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 // Widget dédié à l'affichage de la note sous forme d'étoiles avec le nombre d'avis
 class ReviewIndicator extends StatelessWidget {
   final double? rating;
-  final int? reviewsCount;
+  final int reviewsCount;
 
   const ReviewIndicator(
       {Key? key, required this.rating, required this.reviewsCount})
